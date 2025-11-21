@@ -7,6 +7,7 @@ interface InteractiveCanvasProps {
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
+  onSegmented?: (selectedMaskIndex: number) => void; // Callback when user wants to create crop
 }
 
 export default function InteractiveCanvas({
@@ -14,6 +15,7 @@ export default function InteractiveCanvas({
   imageUrl,
   imageWidth,
   imageHeight,
+  onSegmented,
 }: InteractiveCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [points, setPoints] = useState<Point[]>([]);
@@ -288,7 +290,7 @@ export default function InteractiveCanvas({
           <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>
             Select Mask:
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
             {masks.map((_, idx) => (
               <div
                 key={idx}
@@ -314,6 +316,26 @@ export default function InteractiveCanvas({
               </div>
             ))}
           </div>
+
+          {/* Create Crop Button */}
+          {onSegmented && (
+            <button
+              onClick={() => onSegmented(selectedMask)}
+              style={{
+                width: '100%',
+                padding: '16px',
+                backgroundColor: '#27ae60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+              }}
+            >
+              ✂️ Create Crop from Selected Mask
+            </button>
+          )}
         </div>
       )}
     </div>
