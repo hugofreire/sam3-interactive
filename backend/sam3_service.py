@@ -161,6 +161,10 @@ class SAM3Service:
                 best_idx = np.argmax(scores)
                 session['logits'] = logits[best_idx:best_idx+1, :, :]
 
+            # Store masks for crop extraction
+            session['last_masks'] = masks
+            session['last_scores'] = scores
+
             # Convert masks to base64
             masks_b64 = []
             for i, mask in enumerate(masks):
@@ -277,6 +281,157 @@ class SAM3Service:
             return {'success': True, 'message': 'Session cleared'}
         return {'success': False, 'error': 'Session not found'}
 
+    def crop_from_mask(self, session_id, mask_index, output_path, background_mode='transparent', padding=10):
+        """
+        Extract a crop from the original image using a mask
+
+        Args:
+            session_id: Session identifier
+            mask_index: Index of the mask to use (from last prediction)
+            output_path: Where to save the crop (absolute path)
+            background_mode: 'transparent', 'white', 'black', or 'original'
+            padding: Pixels to add around the bounding box
+        """
+        try:
+            if session_id not in self.sessions:
+                return {
+                    'success': False,
+                    'error': f'Session {session_id} not found'
+                }
+
+            session = self.sessions[session_id]
+
+            # Check if we have masks from a previous prediction
+            if 'last_masks' not in session or session['last_masks'] is None:
+                return {
+                    'success': False,
+                    'error': 'No masks available. Run a prediction first.'
+                }
+
+            masks = session['last_masks']
+            if mask_index >= len(masks):
+                return {
+                    'success': False,
+                    'error': f'Mask index {mask_index} out of range (have {len(masks)} masks)'
+                }
+
+            # Get the mask and original image
+            mask = masks[mask_index]
+            image = session['image']
+
+            # Convert mask to numpy if needed
+            if torch.is_tensor(mask):
+                mask_np = mask.cpu().numpy()
+            else:
+                mask_np = mask
+
+            # Ensure 2D
+            if mask_np.ndim == 3:
+                mask_np = mask_np.squeeze()
+
+            # Convert to boolean
+            mask_bool = mask_np > 0.5
+
+            self.log(f"Creating crop with background_mode={background_mode}")
+
+            # Calculate bounding box
+            rows = np.any(mask_bool, axis=1)
+            cols = np.any(mask_bool, axis=0)
+
+            if not rows.any() or not cols.any():
+                return {
+                    'success': False,
+                    'error': 'Mask is empty'
+                }
+
+            rmin, rmax = np.where(rows)[0][[0, -1]]
+            cmin, cmax = np.where(cols)[0][[0, -1]]
+
+            # Add padding
+            height, width = mask_np.shape
+            rmin = max(0, rmin - padding)
+            rmax = min(height - 1, rmax + padding)
+            cmin = max(0, cmin - padding)
+            cmax = min(width - 1, cmax + padding)
+
+            bbox = [int(cmin), int(rmin), int(cmax), int(rmax)]  # x1, y1, x2, y2
+            bbox_width = bbox[2] - bbox[0]
+            bbox_height = bbox[3] - bbox[1]
+
+            self.log(f"Bounding box: {bbox} (width={bbox_width}, height={bbox_height})")
+
+            # Convert PIL image to numpy
+            image_np = np.array(image)
+
+            # Crop the region
+            crop_region = image_np[rmin:rmax+1, cmin:cmax+1]
+            mask_region = mask_bool[rmin:rmax+1, cmin:cmax+1]
+
+            # Apply background mode
+            if background_mode == 'transparent':
+                # Create RGBA image with alpha channel from mask
+                if crop_region.shape[2] == 3:  # RGB
+                    alpha = (mask_region * 255).astype(np.uint8)
+                    crop_rgba = np.dstack([crop_region, alpha])
+                    crop_image = Image.fromarray(crop_rgba, mode='RGBA')
+                else:
+                    crop_image = Image.fromarray(crop_region)
+
+            elif background_mode == 'white':
+                # White background
+                result = np.ones_like(crop_region) * 255
+                result[mask_region] = crop_region[mask_region]
+                crop_image = Image.fromarray(result.astype(np.uint8), mode='RGB')
+
+            elif background_mode == 'black':
+                # Black background
+                result = np.zeros_like(crop_region)
+                result[mask_region] = crop_region[mask_region]
+                crop_image = Image.fromarray(result.astype(np.uint8), mode='RGB')
+
+            elif background_mode == 'original':
+                # Keep original pixels (just crop, no masking)
+                crop_image = Image.fromarray(crop_region.astype(np.uint8), mode='RGB')
+
+            else:
+                return {
+                    'success': False,
+                    'error': f'Unknown background_mode: {background_mode}'
+                }
+
+            # Ensure output directory exists
+            output_dir = os.path.dirname(output_path)
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+
+            # Save the crop
+            crop_image.save(output_path, format='PNG')
+
+            # Calculate mask area (number of pixels)
+            mask_area = int(mask_region.sum())
+
+            self.log(f"Crop saved to: {output_path}")
+            self.log(f"Crop size: {bbox_width}x{bbox_height}, mask area: {mask_area} pixels")
+
+            return {
+                'success': True,
+                'output_path': output_path,
+                'bbox': bbox,
+                'crop_width': bbox_width,
+                'crop_height': bbox_height,
+                'mask_area': mask_area,
+                'message': 'Crop created successfully'
+            }
+
+        except Exception as e:
+            self.log(f"Error in crop_from_mask: {e}", "ERROR")
+            import traceback
+            self.log(traceback.format_exc(), "ERROR")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def handle_command(self, command_data):
         """Handle a command from stdin"""
         command = command_data.get('command')
@@ -304,6 +459,15 @@ class SAM3Service:
 
         elif command == 'clear_session':
             return self.clear_session(command_data['session_id'])
+
+        elif command == 'crop_from_mask':
+            return self.crop_from_mask(
+                command_data['session_id'],
+                command_data['mask_index'],
+                command_data['output_path'],
+                command_data.get('background_mode', 'transparent'),
+                command_data.get('padding', 10)
+            )
 
         elif command == 'ping':
             return {'success': True, 'message': 'pong'}

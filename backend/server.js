@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
+const db = require('./database');
 
 const app = express();
 const PORT = 3001;
@@ -12,12 +13,12 @@ const PORT = 3001;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads', express.static('backend/uploads'));
+app.use('/uploads', express.static('uploads'));
 
 // File upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'backend/uploads/');
+        cb(null, 'uploads/');
     },
     filename: (req, file, cb) => {
         const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
@@ -50,7 +51,7 @@ function log(message) {
 function startSAM3Process() {
     log('Starting SAM3 service...');
 
-    sam3Process = spawn('python3', ['-u', 'backend/sam3_service.py'], {
+    sam3Process = spawn('python3', ['-u', 'sam3_service.py'], {
         env: { ...process.env, CUDA_VISIBLE_DEVICES: '1' }
     });
 
@@ -148,13 +149,34 @@ function processQueue() {
     }
 }
 
-// ==================== API ENDPOINTS ====================
+// ==================== API ROUTES ====================
+
+// Make sendCommand available to routes
+app.locals.sendCommand = sendCommand;
+
+// Import route modules
+const projectsRouter = require('./routes/projects');
+const cropsRouter = require('./routes/crops');
+
+// Mount routes
+app.use('/api/projects', projectsRouter);
+
+// Crops routes - Use Express router.param to pass projectId
+const cropsRouterWithProject = express.Router({ mergeParams: true });
+cropsRouterWithProject.use(cropsRouter);
+app.use('/api/projects/:projectId/crops', cropsRouterWithProject);
+
+// Standalone crops routes (for image serving and crop operations by ID)
+app.use('/api/crops', cropsRouter);
+
+// ==================== SAM3 ENDPOINTS ====================
 
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         sam3Ready: isReady,
+        databaseReady: true,
         timestamp: new Date().toISOString()
     });
 });
@@ -290,6 +312,18 @@ app.delete('/api/session/:sessionId', async (req, res) => {
 
 // ==================== STARTUP & SHUTDOWN ====================
 
+// Initialize database
+async function initializeDatabase() {
+    try {
+        log('Initializing database...');
+        await db.initMainDatabase();
+        log('✅ Database initialized successfully');
+    } catch (error) {
+        console.error('❌ Failed to initialize database:', error);
+        process.exit(1);
+    }
+}
+
 // Start SAM3 service
 startSAM3Process();
 
@@ -297,16 +331,24 @@ startSAM3Process();
 process.on('SIGINT', async () => {
     log('Shutting down...');
 
+    // Close database connections
+    try {
+        await db.closeAll();
+        log('Database connections closed');
+    } catch (e) {
+        console.error('Error closing database:', e);
+    }
+
     if (sam3Process) {
         sam3Process.kill();
     }
 
     // Clean up old upload files
     try {
-        const files = await fs.readdir('backend/uploads');
+        const files = await fs.readdir('uploads');
         for (const file of files) {
             if (file !== '.gitkeep') {
-                await fs.unlink(path.join('backend/uploads', file));
+                await fs.unlink(path.join('uploads', file));
             }
         }
         log('Cleaned up upload directory');
@@ -318,7 +360,15 @@ process.on('SIGINT', async () => {
 });
 
 // Start server
-app.listen(PORT, () => {
-    log(`🚀 SAM3 Backend running on http://localhost:${PORT}`);
-    log(`Waiting for SAM3 service to be ready...`);
-});
+async function startServer() {
+    // Initialize database first
+    await initializeDatabase();
+
+    // Start Express server
+    app.listen(PORT, () => {
+        log(`🚀 SAM3 Backend running on http://localhost:${PORT}`);
+        log(`Waiting for SAM3 service to be ready...`);
+    });
+}
+
+startServer();
