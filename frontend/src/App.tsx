@@ -3,10 +3,11 @@ import ImageUpload from './components/ImageUpload';
 import InteractiveCanvas from './components/InteractiveCanvas';
 import ProjectManager from './components/ProjectManager';
 import CropAndLabel from './components/CropAndLabel';
+import DatasetGallery from './components/DatasetGallery';
 import type { Session, Project } from './types';
 import './App.css';
 
-type WorkflowState = 'upload' | 'segment' | 'label';
+type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery';
 
 function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -30,6 +31,10 @@ function App() {
     // Reset to upload state for next image
     setSession(null);
     setWorkflow('upload');
+  };
+
+  const handleViewDataset = () => {
+    setWorkflow('gallery');
   };
 
   const handleCancelLabel = () => {
@@ -68,15 +73,51 @@ function App() {
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           }}
         >
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>
-              SAM3 Dataset Labeling
-            </h1>
-            <p style={{ margin: '8px 0 0 0', fontSize: '15px', opacity: 0.9 }}>
-              {currentProject
-                ? `Project: ${currentProject.name} (${currentProject.num_crops} crops, ${currentProject.num_labels} labels)`
-                : 'Select or create a project to start labeling'}
-            </p>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>
+                SAM3 Dataset Labeling
+              </h1>
+              <p style={{ margin: '8px 0 0 0', fontSize: '15px', opacity: 0.9 }}>
+                {currentProject
+                  ? `Project: ${currentProject.name} (${currentProject.num_crops} crops, ${currentProject.num_labels} labels)`
+                  : 'Select or create a project to start labeling'}
+              </p>
+            </div>
+            {currentProject && (
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={() => setWorkflow('upload')}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: workflow === 'upload' || workflow === 'segment' || workflow === 'label' ? '#27ae60' : '#7f8c8d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  📁 Label Images
+                </button>
+                <button
+                  onClick={handleViewDataset}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: workflow === 'gallery' ? '#27ae60' : '#7f8c8d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  📊 View Dataset
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -290,6 +331,9 @@ function App() {
                 onCancel={handleCancelLabel}
               />
             </div>
+          ) : workflow === 'gallery' ? (
+            // Gallery state
+            <DatasetGallery projectId={currentProject.id} projectName={currentProject.name} />
           ) : null}
         </main>
 
