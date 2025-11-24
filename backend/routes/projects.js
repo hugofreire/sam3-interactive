@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const exportModule = require('../export');
 
 function log(message) {
     console.log(`[${new Date().toISOString()}] ${message}`);
@@ -190,6 +191,62 @@ router.delete('/:id', async (req, res) => {
 
     } catch (error) {
         console.error('Error deleting project:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/projects/:id/export/zip
+ * Export project as ZIP with train/val/test split
+ */
+router.post('/:id/export/zip', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            split = { train: 0.7, val: 0.2, test: 0.1 },
+            includeMetadata = true
+        } = req.body;
+
+        log(`Exporting project: ${id}`);
+
+        // Validate split ratios
+        const totalRatio = (split.train || 0) + (split.val || 0) + (split.test || 0);
+        if (Math.abs(totalRatio - 1.0) > 0.01) {
+            return res.status(400).json({
+                success: false,
+                error: 'Split ratios must sum to 1.0'
+            });
+        }
+
+        // Check if project exists
+        const project = await db.getProjectById(id);
+        if (!project) {
+            return res.status(404).json({
+                success: false,
+                error: 'Project not found'
+            });
+        }
+
+        // Create export
+        const result = await exportModule.createDatasetZIP(id, {
+            split,
+            includeMetadata
+        });
+
+        log(`✅ Export created: ${result.zipFilename}`);
+
+        res.json({
+            success: true,
+            downloadUrl: `/api/downloads/${result.zipFilename}`,
+            filename: result.zipFilename,
+            stats: result.stats
+        });
+
+    } catch (error) {
+        console.error('Error exporting project:', error);
         res.status(500).json({
             success: false,
             error: error.message

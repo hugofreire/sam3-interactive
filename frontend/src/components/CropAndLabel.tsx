@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { createCrop } from '../api/crops';
 import type { BackgroundMode, Session } from '../types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface CropAndLabelProps {
   projectId: string;
@@ -109,251 +121,120 @@ export default function CropAndLabel({
   }, [label, recentLabels]);
 
   return (
-    <div
-      style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        padding: '24px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        maxWidth: '600px',
-        margin: '0 auto',
-      }}
-    >
-      <h2 style={{ marginTop: 0, marginBottom: '20px' }}>
-        Label Segmented Object
-      </h2>
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Label Segmented Object</CardTitle>
+      </CardHeader>
 
-      {/* Crop Preview Placeholder */}
-      <div
-        style={{
-          backgroundColor: '#f5f5f5',
-          borderRadius: '8px',
-          padding: '20px',
-          marginBottom: '20px',
-          textAlign: 'center',
-          border: '2px dashed #ddd',
-        }}
-      >
-        <div style={{ color: '#666', fontSize: '14px', marginBottom: '8px' }}>
-          Selected Mask #{selectedMaskIndex + 1}
+      <CardContent className="space-y-6">
+        {/* Crop Preview Placeholder */}
+        <Card className="bg-muted border-dashed">
+          <CardContent className="p-8 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Selected Mask #{selectedMaskIndex + 1}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Crop will be generated when you save
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Background Mode Selector */}
+        <div className="space-y-2">
+          <Label htmlFor="background-mode">Background Mode</Label>
+          <Select value={backgroundMode} onValueChange={(value) => setBackgroundMode(value as BackgroundMode)}>
+            <SelectTrigger id="background-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="transparent">Transparent (RGBA)</SelectItem>
+              <SelectItem value="white">White Background</SelectItem>
+              <SelectItem value="black">Black Background</SelectItem>
+              <SelectItem value="original">Original (No Masking)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div style={{ color: '#999', fontSize: '12px' }}>
-          Crop will be generated when you save
-        </div>
-      </div>
 
-      {/* Background Mode Selector */}
-      <div style={{ marginBottom: '20px' }}>
-        <label
-          htmlFor="background-mode"
-          style={{
-            display: 'block',
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            fontSize: '14px',
-          }}
-        >
-          Background Mode:
-        </label>
-        <select
-          id="background-mode"
-          value={backgroundMode}
-          onChange={(e) => setBackgroundMode(e.target.value as BackgroundMode)}
-          style={{
-            width: '100%',
-            padding: '10px',
-            fontSize: '14px',
-            borderRadius: '4px',
-            border: '1px solid #ddd',
-          }}
-        >
-          <option value="transparent">Transparent (RGBA)</option>
-          <option value="white">White Background</option>
-          <option value="black">Black Background</option>
-          <option value="original">Original (No Masking)</option>
-        </select>
-      </div>
-
-      {/* Label Input */}
-      <div style={{ marginBottom: '20px' }}>
-        <label
-          htmlFor="label-input"
-          style={{
-            display: 'block',
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            fontSize: '14px',
-          }}
-        >
-          Label:
-        </label>
-        <input
-          ref={inputRef}
-          id="label-input"
-          type="text"
-          placeholder="e.g., car, person, tree..."
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          list="recent-labels-list"
-          style={{
-            width: '100%',
-            padding: '12px',
-            fontSize: '15px',
-            borderRadius: '4px',
-            border: '1px solid #ddd',
-            boxSizing: 'border-box',
-          }}
-        />
-        <datalist id="recent-labels-list">
-          {recentLabels.map((l, i) => (
-            <option key={i} value={l} />
-          ))}
-        </datalist>
-      </div>
-
-      {/* Recent Labels (Quick Select) */}
-      {recentLabels.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <div
-            style={{
-              fontSize: '13px',
-              color: '#666',
-              marginBottom: '8px',
-            }}
-          >
-            Recent labels (press 1-9):
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-            }}
-          >
-            {recentLabels.slice(0, 9).map((l, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setLabel(l);
-                  inputRef.current?.focus();
-                }}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#f0f0f0',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  color: '#333',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e0e0e0';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f0f0f0';
-                }}
-              >
-                <strong>{i + 1}.</strong> {l}
-              </button>
+        {/* Label Input */}
+        <div className="space-y-2">
+          <Label htmlFor="label-input">Label</Label>
+          <Input
+            ref={inputRef}
+            id="label-input"
+            placeholder="e.g., car, person, tree..."
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            list="recent-labels-list"
+          />
+          <datalist id="recent-labels-list">
+            {recentLabels.map((l, i) => (
+              <option key={i} value={l} />
             ))}
+          </datalist>
+        </div>
+
+        {/* Recent Labels (Quick Select) */}
+        {recentLabels.length > 0 && (
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">
+              Recent labels (press 1-9):
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {recentLabels.slice(0, 9).map((l, i) => (
+                <Button
+                  key={i}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setLabel(l);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Badge variant="secondary" className="mr-2">{i + 1}</Badge>
+                  {l}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button
-          onClick={handleSave}
-          disabled={saving || !label.trim()}
-          style={{
-            flex: 1,
-            padding: '14px',
-            backgroundColor: saving || !label.trim() ? '#ccc' : '#27ae60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: saving || !label.trim() ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {saving ? 'Saving...' : 'Save Crop (Enter)'}
-        </button>
-        <button
-          onClick={handleSkip}
-          disabled={saving}
-          style={{
-            flex: 1,
-            padding: '14px',
-            backgroundColor: saving ? '#ccc' : '#7f8c8d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: saving ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Skip (Esc)
-        </button>
-      </div>
+        {/* Actions */}
+        <div className="flex gap-3">
+          <Button
+            className="flex-1"
+            onClick={handleSave}
+            disabled={saving || !label.trim()}
+          >
+            {saving ? 'Saving...' : 'Save Crop (Enter)'}
+          </Button>
+          <Button
+            className="flex-1"
+            variant="secondary"
+            onClick={handleSkip}
+            disabled={saving}
+          >
+            Skip (Esc)
+          </Button>
+        </div>
 
-      {/* Keyboard Shortcuts Help */}
-      <div
-        style={{
-          marginTop: '20px',
-          padding: '12px',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: '#666',
-        }}
-      >
-        <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>
-          Keyboard Shortcuts:
-        </div>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <span>
-            <kbd
-              style={{
-                padding: '2px 6px',
-                backgroundColor: '#e0e0e0',
-                borderRadius: '3px',
-                fontFamily: 'monospace',
-              }}
-            >
-              Enter
-            </kbd>{' '}
-            Save
-          </span>
-          <span>
-            <kbd
-              style={{
-                padding: '2px 6px',
-                backgroundColor: '#e0e0e0',
-                borderRadius: '3px',
-                fontFamily: 'monospace',
-              }}
-            >
-              Esc
-            </kbd>{' '}
-            Skip
-          </span>
-          <span>
-            <kbd
-              style={{
-                padding: '2px 6px',
-                backgroundColor: '#e0e0e0',
-                borderRadius: '3px',
-                fontFamily: 'monospace',
-              }}
-            >
-              1-9
-            </kbd>{' '}
-            Quick label
-          </span>
-        </div>
-      </div>
-    </div>
+        {/* Keyboard Shortcuts Help */}
+        <Card className="bg-muted">
+          <CardContent className="p-3">
+            <p className="text-sm font-semibold mb-2">Keyboard Shortcuts:</p>
+            <div className="flex gap-4 flex-wrap text-xs text-muted-foreground">
+              <span>
+                <Badge variant="outline">Enter</Badge> Save
+              </span>
+              <span>
+                <Badge variant="outline">Esc</Badge> Skip
+              </span>
+              <span>
+                <Badge variant="outline">1-9</Badge> Quick label
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCrops, getCropImageUrl, deleteCrop, updateCropLabel } from '../api/crops';
+import { exportProject } from '../api/projects';
 import type { Crop } from '../types';
 
 interface DatasetGalleryProps {
@@ -16,6 +17,11 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
   const [editLabel, setEditLabel] = useState('');
   const [groupedCrops, setGroupedCrops] = useState<{ [label: string]: Crop[] }>({});
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [trainSplit, setTrainSplit] = useState(70);
+  const [valSplit, setValSplit] = useState(20);
+  const [testSplit, setTestSplit] = useState(10);
 
   useEffect(() => {
     loadCrops();
@@ -104,6 +110,51 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
     setExpandedLabels(newExpanded);
   };
 
+  const handleExport = async () => {
+    if (crops.length === 0) {
+      alert('No crops to export');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const result = await exportProject(projectId, {
+        split: {
+          train: trainSplit / 100,
+          val: valSplit / 100,
+          test: testSplit / 100
+        },
+        includeMetadata: true
+      });
+
+      // Trigger download
+      const downloadUrl = result.downloadUrl;
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Show success message
+      alert(
+        `Export successful!\n\n` +
+        `Total: ${result.stats.total} crops\n` +
+        `Train: ${result.stats.train} crops\n` +
+        `Val: ${result.stats.val} crops\n` +
+        `Test: ${result.stats.test} crops\n` +
+        `Classes: ${result.stats.classes.join(', ')}`
+      );
+
+      setShowExportDialog(false);
+    } catch (err) {
+      console.error('Failed to export:', err);
+      alert('Failed to export dataset. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const totalCrops = crops.length;
   const totalLabels = Object.keys(groupedCrops).length;
 
@@ -165,14 +216,34 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         }}
       >
-        <h2 style={{ margin: '0 0 12px 0' }}>Dataset: {projectName}</h2>
-        <div style={{ display: 'flex', gap: '24px', fontSize: '15px', color: '#666' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <strong style={{ color: '#333' }}>{totalCrops}</strong> crops
+            <h2 style={{ margin: '0 0 12px 0' }}>Dataset: {projectName}</h2>
+            <div style={{ display: 'flex', gap: '24px', fontSize: '15px', color: '#666' }}>
+              <div>
+                <strong style={{ color: '#333' }}>{totalCrops}</strong> crops
+              </div>
+              <div>
+                <strong style={{ color: '#333' }}>{totalLabels}</strong> labels
+              </div>
+            </div>
           </div>
-          <div>
-            <strong style={{ color: '#333' }}>{totalLabels}</strong> labels
-          </div>
+          <button
+            onClick={() => setShowExportDialog(true)}
+            disabled={crops.length === 0}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: crops.length === 0 ? '#ccc' : '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '15px',
+              cursor: crops.length === 0 ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+            }}
+          >
+            Export Dataset
+          </button>
         </div>
       </div>
 
@@ -466,6 +537,209 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
                   objectFit: 'contain',
                 }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Dialog */}
+      {showExportDialog && (
+        <div
+          onClick={() => setShowExportDialog(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '40px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '600px',
+              width: '100%',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: '20px',
+                backgroundColor: '#27ae60',
+                color: 'white',
+              }}
+            >
+              <h2 style={{ margin: 0 }}>Export Dataset</h2>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              {/* Dataset Summary */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '16px' }}>Dataset Summary</h3>
+                <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.6' }}>
+                  <div><strong>{totalCrops}</strong> total crops</div>
+                  <div><strong>{totalLabels}</strong> labels: {Object.keys(groupedCrops).sort().join(', ')}</div>
+                </div>
+              </div>
+
+              {/* Split Configuration */}
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '16px', marginBottom: '16px' }}>
+                  Train/Val/Test Split
+                </h3>
+
+                {/* Train Split */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500' }}>Train</label>
+                    <span style={{ fontSize: '14px', color: '#666' }}>
+                      {trainSplit}% ({Math.floor(totalCrops * trainSplit / 100)} crops)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={trainSplit}
+                    onChange={(e) => {
+                      const newTrain = parseInt(e.target.value);
+                      setTrainSplit(newTrain);
+                      // Adjust other splits proportionally
+                      const remaining = 100 - newTrain;
+                      const ratio = remaining > 0 ? (valSplit / (valSplit + testSplit)) : 0.5;
+                      setValSplit(Math.floor(remaining * ratio));
+                      setTestSplit(remaining - Math.floor(remaining * ratio));
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                {/* Val Split */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500' }}>Validation</label>
+                    <span style={{ fontSize: '14px', color: '#666' }}>
+                      {valSplit}% ({Math.floor(totalCrops * valSplit / 100)} crops)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={valSplit}
+                    onChange={(e) => {
+                      const newVal = parseInt(e.target.value);
+                      setValSplit(newVal);
+                      // Adjust other splits proportionally
+                      const remaining = 100 - newVal;
+                      const ratio = remaining > 0 ? (trainSplit / (trainSplit + testSplit)) : 0.7;
+                      setTrainSplit(Math.floor(remaining * ratio));
+                      setTestSplit(remaining - Math.floor(remaining * ratio));
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                {/* Test Split */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '14px', fontWeight: '500' }}>Test</label>
+                    <span style={{ fontSize: '14px', color: '#666' }}>
+                      {testSplit}% ({Math.floor(totalCrops * testSplit / 100)} crops)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={testSplit}
+                    onChange={(e) => {
+                      const newTest = parseInt(e.target.value);
+                      setTestSplit(newTest);
+                      // Adjust other splits proportionally
+                      const remaining = 100 - newTest;
+                      const ratio = remaining > 0 ? (trainSplit / (trainSplit + valSplit)) : 0.7;
+                      setTrainSplit(Math.floor(remaining * ratio));
+                      setValSplit(remaining - Math.floor(remaining * ratio));
+                    }}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                {/* Total check */}
+                <div style={{ marginTop: '12px', fontSize: '12px', color: '#999', textAlign: 'right' }}>
+                  Total: {trainSplit + valSplit + testSplit}%
+                </div>
+              </div>
+
+              {/* Export Info */}
+              <div
+                style={{
+                  padding: '12px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '4px',
+                  fontSize: '13px',
+                  color: '#666',
+                  lineHeight: '1.6',
+                }}
+              >
+                <strong>Export Format:</strong> ZIP file with train/val/test folders grouped by label, plus metadata.json
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div
+              style={{
+                padding: '16px 24px',
+                backgroundColor: '#f8f9fa',
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <button
+                onClick={() => setShowExportDialog(false)}
+                disabled={exporting}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#95a5a6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: exporting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: exporting ? '#ccc' : '#27ae60',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: exporting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                }}
+              >
+                {exporting ? 'Exporting...' : 'Export'}
+              </button>
             </div>
           </div>
         </div>

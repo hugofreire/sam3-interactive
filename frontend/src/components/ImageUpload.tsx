@@ -1,37 +1,22 @@
-import React, { useState, useRef } from 'react';
+import { useState } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { uploadImage } from '../api/sam3';
 import type { Session } from '../types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface ImageUploadProps {
   onImageUploaded: (session: Session) => void;
 }
 
 export default function ImageUpload({ onImageUploaded }: ImageUploadProps) {
-  const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      return 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
-    }
-
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return 'File too large. Maximum size is 10MB.';
-    }
-
-    return null;
-  };
-
-  const handleFile = async (file: File) => {
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+  const onDrop = async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
 
     setError(null);
     setIsUploading(true);
@@ -53,96 +38,56 @@ export default function ImageUpload({ onImageUploaded }: ImageUploadProps) {
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      handleFile(files[0]);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files[0]) {
-      handleFile(files[0]);
-    }
-  };
-
-  const handleClick = () => {
-    fileInputRef.current?.click();
-  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
+    },
+    maxSize: 10 * 1024 * 1024, // 10MB
+    multiple: false,
+  });
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={handleClick}
-        style={{
-          border: `2px dashed ${isDragging ? '#4CAF50' : '#ccc'}`,
-          borderRadius: '8px',
-          padding: '60px 40px',
-          textAlign: 'center',
-          cursor: 'pointer',
-          backgroundColor: isDragging ? '#f0f8f0' : '#fafafa',
-          transition: 'all 0.3s ease',
-        }}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleFileSelect}
-          style={{ display: 'none' }}
-        />
+    <div className="p-5">
+      <Card className="border-dashed">
+        <CardContent className="p-0">
+          <div
+            {...getRootProps()}
+            className={cn(
+              'cursor-pointer transition-colors py-16 px-10 text-center',
+              isDragActive && 'bg-accent',
+              !isDragActive && 'hover:bg-muted/50'
+            )}
+          >
+            <input {...getInputProps()} />
 
-        {isUploading ? (
-          <div>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-            <div style={{ fontSize: '18px', color: '#666' }}>Uploading...</div>
+            {isUploading ? (
+              <div>
+                <div className="text-5xl mb-4">⏳</div>
+                <div className="text-lg text-muted-foreground">Uploading...</div>
+              </div>
+            ) : (
+              <>
+                <div className="text-5xl mb-4">📁</div>
+                <div className="text-xl mb-2 font-semibold">
+                  {isDragActive ? 'Drop image here' : 'Drag & Drop Image Here'}
+                </div>
+                <div className="text-sm text-muted-foreground mb-4">
+                  or click to browse
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Supports: JPEG, PNG, WebP • Max size: 10MB
+                </div>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📁</div>
-            <div style={{ fontSize: '20px', marginBottom: '8px', fontWeight: 'bold' }}>
-              {isDragging ? 'Drop image here' : 'Drag & Drop Image Here'}
-            </div>
-            <div style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
-              or click to browse
-            </div>
-            <div style={{ fontSize: '12px', color: '#999' }}>
-              Supports: JPEG, PNG, WebP • Max size: 10MB
-            </div>
-          </>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
       {error && (
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '12px',
-            backgroundColor: '#ffebee',
-            border: '1px solid #f44336',
-            borderRadius: '4px',
-            color: '#c62828',
-          }}
-        >
-          ⚠️ {error}
-        </div>
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>⚠️ {error}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

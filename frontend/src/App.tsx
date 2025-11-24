@@ -5,6 +5,10 @@ import ProjectManager from './components/ProjectManager';
 import CropAndLabel from './components/CropAndLabel';
 import DatasetGallery from './components/DatasetGallery';
 import type { Session, Project } from './types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import './App.css';
 
 type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery';
@@ -55,7 +59,7 @@ function App() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div className="flex h-screen overflow-hidden">
       {/* Sidebar: Project Manager */}
       <ProjectManager
         currentProjectId={currentProject?.id || null}
@@ -63,218 +67,138 @@ function App() {
       />
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+      <div className="flex-1 flex flex-col overflow-auto">
         {/* Header */}
-        <header
-          style={{
-            backgroundColor: '#1976D2',
-            color: 'white',
-            padding: '20px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          }}
-        >
-          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <header className="bg-primary text-primary-foreground shadow-md">
+          <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
             <div>
-              <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>
+              <h1 className="text-3xl font-bold m-0">
                 SAM3 Dataset Labeling
               </h1>
-              <p style={{ margin: '8px 0 0 0', fontSize: '15px', opacity: 0.9 }}>
-                {currentProject
-                  ? `Project: ${currentProject.name} (${currentProject.num_crops} crops, ${currentProject.num_labels} labels)`
-                  : 'Select or create a project to start labeling'}
+              <p className="text-sm mt-2 opacity-90">
+                {currentProject ? (
+                  <>
+                    Project: {currentProject.name}{' '}
+                    <Badge variant="secondary" className="ml-2">
+                      {currentProject.num_crops} crops
+                    </Badge>
+                    <Badge variant="secondary" className="ml-1">
+                      {currentProject.num_labels} labels
+                    </Badge>
+                  </>
+                ) : (
+                  'Select or create a project to start labeling'
+                )}
               </p>
             </div>
             {currentProject && (
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
+              <div className="flex gap-3">
+                <Button
+                  variant={
+                    workflow === 'upload' || workflow === 'segment' || workflow === 'label'
+                      ? 'default'
+                      : 'secondary'
+                  }
                   onClick={() => setWorkflow('upload')}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: workflow === 'upload' || workflow === 'segment' || workflow === 'label' ? '#27ae60' : '#7f8c8d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
                 >
                   📁 Label Images
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={workflow === 'gallery' ? 'default' : 'secondary'}
                   onClick={handleViewDataset}
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: workflow === 'gallery' ? '#27ae60' : '#7f8c8d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
                 >
                   📊 View Dataset
-                </button>
+                </Button>
               </div>
             )}
           </div>
         </header>
 
         {/* Main Content */}
-        <main
-          style={{
-            flex: 1,
-            maxWidth: '1200px',
-            width: '100%',
-            margin: '0 auto',
-            padding: '20px',
-            backgroundColor: '#f5f5f5',
-          }}
-        >
+        <main className="flex-1 max-w-7xl w-full mx-auto p-5 bg-muted/30">
           {!currentProject ? (
             // No project selected
-            <div
-              style={{
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                padding: '60px 40px',
-                textAlign: 'center',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              }}
-            >
-              <div style={{ fontSize: '48px', marginBottom: '20px' }}>📁</div>
-              <h2 style={{ margin: '0 0 12px 0' }}>No Project Selected</h2>
-              <p style={{ color: '#666', fontSize: '16px', margin: 0 }}>
-                Create a new project or select an existing one from the sidebar to start labeling.
-              </p>
-            </div>
+            <Card className="text-center py-16 px-10">
+              <CardContent>
+                <div className="text-5xl mb-5">📁</div>
+                <h2 className="text-2xl font-bold mb-3">No Project Selected</h2>
+                <p className="text-muted-foreground">
+                  Create a new project or select an existing one from the sidebar to start labeling.
+                </p>
+              </CardContent>
+            </Card>
           ) : workflow === 'upload' ? (
             // Upload state
-            <div>
-              <div
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  padding: '20px',
-                  marginBottom: '20px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                }}
-              >
-                <h2 style={{ marginTop: 0 }}>Upload an Image</h2>
-                <p style={{ color: '#666' }}>
-                  Upload an image to segment objects and create labeled crops for your dataset.
-                </p>
-              </div>
+            <div className="space-y-5">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upload an Image</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Upload an image to segment objects and create labeled crops for your dataset.
+                  </p>
+                </CardContent>
+              </Card>
 
-              <div
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                }}
-              >
+              <Card>
                 <ImageUpload onImageUploaded={handleImageUploaded} />
-              </div>
+              </Card>
 
               {/* Workflow Instructions */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: '20px',
-                  marginTop: '20px',
-                }}
-              >
-                <div
-                  style={{
-                    backgroundColor: 'white',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <h3 style={{ marginTop: 0, color: '#3498db' }}>1. Upload</h3>
-                  <p style={{ color: '#666', lineHeight: '1.6', margin: 0 }}>
-                    Upload an image containing objects you want to label
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-primary">1. Upload</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Upload an image containing objects you want to label
+                    </p>
+                  </CardContent>
+                </Card>
 
-                <div
-                  style={{
-                    backgroundColor: 'white',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <h3 style={{ marginTop: 0, color: '#9b59b6' }}>2. Segment</h3>
-                  <p style={{ color: '#666', lineHeight: '1.6', margin: 0 }}>
-                    Click on objects to segment them with SAM3 AI
-                  </p>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>2. Segment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Click on objects to segment them with SAM3 AI
+                    </p>
+                  </CardContent>
+                </Card>
 
-                <div
-                  style={{
-                    backgroundColor: 'white',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  <h3 style={{ marginTop: 0, color: '#27ae60' }}>3. Label & Save</h3>
-                  <p style={{ color: '#666', lineHeight: '1.6', margin: 0 }}>
-                    Assign labels and save crops to your dataset
-                  </p>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>3. Label & Save</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Assign labels and save crops to your dataset
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           ) : workflow === 'segment' && session ? (
             // Segmentation state
-            <div>
-              <div
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  padding: '20px',
-                  marginBottom: '20px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div>
-                  <h2 style={{ margin: 0 }}>Interactive Segmentation</h2>
-                  <p style={{ margin: '8px 0 0 0', color: '#666' }}>
-                    Image: {session.width} × {session.height} pixels
-                  </p>
+            <div className="space-y-5">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Interactive Segmentation</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Image: {session.width} × {session.height} pixels
+                    </p>
                 </div>
-
-                <button
-                  onClick={handleReset}
-                  style={{
-                    padding: '12px 24px',
-                    backgroundColor: '#7f8c8d',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '15px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                  }}
-                >
+                <Button variant="secondary" onClick={handleReset}>
                   Upload New Image
-                </button>
-              </div>
+                </Button>
+                </CardHeader>
+              </Card>
 
-              <div
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                }}
-              >
+              <Card>
                 <InteractiveCanvas
                   sessionId={session.sessionId}
                   imageUrl={session.imageUrl || ''}
@@ -282,7 +206,7 @@ function App() {
                   imageHeight={session.height}
                   onSegmented={handleSegmented}
                 />
-              </div>
+              </Card>
             </div>
           ) : workflow === 'label' && session ? (
             // Label state

@@ -136,6 +136,15 @@ export interface GetCropsRequest {
   offset?: number;
 }
 
+export interface ExportProjectRequest {
+  split?: {
+    train: number;
+    val: number;
+    test: number;
+  };
+  includeMetadata?: boolean;
+}
+
 // API response types
 export interface ProjectsResponse {
   success: boolean;
@@ -163,6 +172,20 @@ export interface CropResponse {
 export interface DeleteResponse {
   success: boolean;
   message?: string;
+}
+
+export interface ExportResponse {
+  success: boolean;
+  downloadUrl: string;
+  filename: string;
+  stats: {
+    total: number;
+    train: number;
+    val: number;
+    test: number;
+    classes: string[];
+    size_bytes: number;
+  };
 }
 
 export interface ErrorResponse {

@@ -16,6 +16,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "chrome-devtools-mcp": "^0.10.2",
     "nodemon": "^3.0.1"
   }
 }

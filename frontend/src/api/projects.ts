@@ -5,7 +5,9 @@ import type {
   UpdateProjectRequest,
   ProjectsResponse,
   ProjectResponse,
-  DeleteResponse
+  DeleteResponse,
+  ExportProjectRequest,
+  ExportResponse
 } from '../types';
 
 // Use environment variable or default to proxy
@@ -85,10 +87,31 @@ export async function deleteProject(projectId: string): Promise<void> {
   await api.delete<DeleteResponse>(`/projects/${projectId}`);
 }
 
+/**
+ * Export a project as ZIP file
+ */
+export async function exportProject(
+  projectId: string,
+  options: ExportProjectRequest = {}
+): Promise<ExportResponse> {
+  const response = await api.post<ExportResponse>(
+    `/projects/${projectId}/export/zip`,
+    {
+      split: options.split || { train: 0.7, val: 0.2, test: 0.1 },
+      includeMetadata: options.includeMetadata !== false
+    },
+    {
+      timeout: 120000 // 2 minute timeout for export
+    }
+  );
+  return response.data;
+}
+
 export default {
   getProjects,
   getProject,
   createProject,
   updateProject,
   deleteProject,
+  exportProject,
 };

@@ -10,15 +10,21 @@ const db = require('./database');
 const app = express();
 const PORT = 3001;
 
+// Define paths relative to backend directory
+const BACKEND_DIR = __dirname;
+const UPLOADS_DIR = path.join(BACKEND_DIR, 'uploads');
+const EXPORTS_DIR = path.join(BACKEND_DIR, 'exports');
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/api/downloads', express.static(EXPORTS_DIR));
 
 // File upload configuration
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, UPLOADS_DIR);
     },
     filename: (req, file, cb) => {
         const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
@@ -51,7 +57,8 @@ function log(message) {
 function startSAM3Process() {
     log('Starting SAM3 service...');
 
-    sam3Process = spawn('python3', ['-u', 'sam3_service.py'], {
+    const sam3ServicePath = path.join(BACKEND_DIR, 'sam3_service.py');
+    sam3Process = spawn('python3', ['-u', sam3ServicePath], {
         env: { ...process.env, CUDA_VISIBLE_DEVICES: '1' }
     });
 
@@ -318,6 +325,15 @@ async function initializeDatabase() {
         log('Initializing database...');
         await db.initMainDatabase();
         log('✅ Database initialized successfully');
+
+        // Create exports directory if it doesn't exist
+        const exportsDir = path.join(__dirname, 'exports');
+        try {
+            await fs.access(exportsDir);
+        } catch {
+            await fs.mkdir(exportsDir, { recursive: true });
+            log('✅ Exports directory created');
+        }
     } catch (error) {
         console.error('❌ Failed to initialize database:', error);
         process.exit(1);

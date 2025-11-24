@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { getProjects, createProject, deleteProject } from '../api/projects';
 import type { Project } from '../types';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface ProjectManagerProps {
   currentProjectId: string | null;
@@ -95,252 +103,112 @@ export default function ProjectManager({
   };
 
   return (
-    <div
-      style={{
-        width: '280px',
-        height: '100vh',
-        backgroundColor: '#2c3e50',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRight: '1px solid #34495e',
-      }}
-    >
+    <div className="w-[280px] h-screen bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       {/* Header */}
-      <div
-        style={{
-          padding: '20px',
-          borderBottom: '1px solid #34495e',
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: '20px', marginBottom: '12px' }}>
-          Projects
-        </h2>
-        <button
-          onClick={() => setShowNewProjectDialog(true)}
-          style={{
-            width: '100%',
-            padding: '10px',
-            backgroundColor: '#27ae60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold',
-          }}
-        >
-          + New Project
-        </button>
+      <div className="p-5 border-b border-sidebar-border">
+        <h2 className="text-xl font-bold mb-3">Projects</h2>
+
+        <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
+          <DialogTrigger asChild>
+            <Button className="w-full">+ New Project</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Project</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="project-name">Project Name</Label>
+                <Input
+                  id="project-name"
+                  placeholder="Project name..."
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreateProject();
+                    } else if (e.key === 'Escape') {
+                      setShowNewProjectDialog(false);
+                      setNewProjectName('');
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowNewProjectDialog(false);
+                  setNewProjectName('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleCreateProject}>Create</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* New Project Dialog */}
-      {showNewProjectDialog && (
-        <div
-          style={{
-            padding: '16px',
-            backgroundColor: '#34495e',
-            borderBottom: '1px solid #2c3e50',
-          }}
-        >
-          <input
-            type="text"
-            placeholder="Project name..."
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleCreateProject();
-              } else if (e.key === 'Escape') {
-                setShowNewProjectDialog(false);
-                setNewProjectName('');
-              }
-            }}
-            autoFocus
-            style={{
-              width: '100%',
-              padding: '8px',
-              marginBottom: '8px',
-              borderRadius: '4px',
-              border: '1px solid #2c3e50',
-              fontSize: '14px',
-              boxSizing: 'border-box',
-            }}
-          />
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={handleCreateProject}
-              style={{
-                flex: 1,
-                padding: '8px',
-                backgroundColor: '#27ae60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
-            >
-              Create
-            </button>
-            <button
-              onClick={() => {
-                setShowNewProjectDialog(false);
-                setNewProjectName('');
-              }}
-              style={{
-                flex: 1,
-                padding: '8px',
-                backgroundColor: '#7f8c8d',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Project List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px',
-        }}
-      >
+      <ScrollArea className="flex-1 px-3">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#95a5a6' }}>
+          <div className="text-center py-5 text-muted-foreground">
             Loading projects...
           </div>
         ) : error ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#e74c3c' }}>
-            {error}
-            <br />
-            <button
-              onClick={loadProjects}
-              style={{
-                marginTop: '12px',
-                padding: '8px 16px',
-                backgroundColor: '#3498db',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
+          <div className="text-center py-5 text-destructive">
+            <p>{error}</p>
+            <Button className="mt-3" variant="secondary" onClick={loadProjects}>
               Retry
-            </button>
+            </Button>
           </div>
         ) : projects.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '40px 20px',
-              color: '#95a5a6',
-              fontSize: '14px',
-            }}
-          >
+          <div className="text-center py-10 px-5 text-muted-foreground text-sm">
             No projects yet.
             <br />
             Create one to start labeling!
           </div>
         ) : (
-          projects.map((project) => (
-            <div
-              key={project.id}
-              onClick={() => handleProjectSelect(project)}
-              style={{
-                padding: '12px',
-                marginBottom: '8px',
-                backgroundColor:
-                  currentProjectId === project.id ? '#34495e' : '#2c3e50',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                border: `2px solid ${
-                  currentProjectId === project.id ? '#3498db' : 'transparent'
-                }`,
-                transition: 'all 0.2s',
-                position: 'relative',
-              }}
-              onMouseEnter={(e) => {
-                if (currentProjectId !== project.id) {
-                  e.currentTarget.style.backgroundColor = '#34495e';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentProjectId !== project.id) {
-                  e.currentTarget.style.backgroundColor = '#2c3e50';
-                }
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '15px',
-                  fontWeight: 'bold',
-                  marginBottom: '6px',
-                  paddingRight: '24px',
-                }}
+          <div className="space-y-2 py-3">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className={cn(
+                  'cursor-pointer transition-all hover:bg-sidebar-accent relative',
+                  currentProjectId === project.id && 'border-primary bg-sidebar-accent'
+                )}
+                onClick={() => handleProjectSelect(project)}
               >
-                {project.name}
-              </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: '#95a5a6',
-                }}
-              >
-                {project.num_crops} crops · {project.num_labels} labels
-              </div>
-
-              {/* Delete button */}
-              <button
-                onClick={(e) => handleDeleteProject(project.id, e)}
-                style={{
-                  position: 'absolute',
-                  top: '8px',
-                  right: '8px',
-                  width: '24px',
-                  height: '24px',
-                  backgroundColor: '#e74c3c',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#c0392b';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#e74c3c';
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))
+                <CardHeader className="p-3">
+                  <CardTitle className="text-sm pr-8">{project.name}</CardTitle>
+                  <CardDescription className="text-xs">
+                    <Badge variant="outline" className="mr-1">
+                      {project.num_crops} crops
+                    </Badge>
+                    <Badge variant="outline">
+                      {project.num_labels} labels
+                    </Badge>
+                  </CardDescription>
+                </CardHeader>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-6 w-6"
+                  onClick={(e) => handleDeleteProject(project.id, e)}
+                >
+                  ×
+                </Button>
+              </Card>
+            ))}
+          </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* Footer */}
-      <div
-        style={{
-          padding: '12px',
-          borderTop: '1px solid #34495e',
-          fontSize: '11px',
-          color: '#95a5a6',
-          textAlign: 'center',
-        }}
-      >
+      <div className="p-3 border-t border-sidebar-border text-xs text-muted-foreground text-center">
         SAM3 Dataset Labeling
       </div>
     </div>
