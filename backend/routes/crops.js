@@ -68,6 +68,43 @@ router.post('/', async (req, res) => {
         const timestamp = Date.now();
         const filename = `crop_${timestamp}_${Math.random().toString(36).substr(2, 9)}.png`;
 
+        // Lookup session metadata for dimensions and original image path
+        const sessionMetadata = req.app.locals.sessionMetadata;
+        let sessionInfo = null;
+        let persistedImagePath = null;
+        let sourceWidth = null;
+        let sourceHeight = null;
+
+        if (sessionId && sessionMetadata && sessionMetadata.has(sessionId)) {
+            sessionInfo = sessionMetadata.get(sessionId);
+            sourceWidth = sessionInfo.width;
+            sourceHeight = sessionInfo.height;
+
+            // Persist original image to project images directory (if not already done)
+            const imagesDir = db.getProjectImagesDir(projectId);
+            await fs.mkdir(imagesDir, { recursive: true });
+
+            // Use session ID to create consistent filename across crops from same upload
+            // This ensures all crops from same session reference same persisted image
+            const ext = path.extname(sessionInfo.originalFilename);
+            const baseName = path.parse(sessionInfo.originalFilename).name;
+            const persistedFilename = `${baseName}_${sessionId.substring(0, 8)}${ext}`;
+            const persistedFullPath = path.join(imagesDir, persistedFilename);
+
+            // Check if image already persisted (in case of multiple crops from same session)
+            try {
+                await fs.access(persistedFullPath);
+                log(`Image already persisted: ${persistedFilename}`);
+            } catch {
+                // Image not yet persisted, copy it
+                await fs.copyFile(sessionInfo.uploadPath, persistedFullPath);
+                log(`✅ Original image persisted: ${persistedFilename}`);
+            }
+
+            // Store relative path: images/{filename}
+            persistedImagePath = path.join('images', persistedFilename);
+        }
+
         // Prepare crop data
         let cropData = {
             label: label.trim(),
@@ -77,7 +114,10 @@ router.post('/', async (req, res) => {
             bbox: bbox || [0, 0, 100, 100],
             mask_score: maskScore || null,
             mask_area: maskArea || null,
-            background_mode: backgroundMode
+            background_mode: backgroundMode,
+            source_width: sourceWidth,
+            source_height: sourceHeight,
+            persisted_image_path: persistedImagePath
         };
 
         // If sessionId and maskIndex provided, generate crop image from SAM3 mask

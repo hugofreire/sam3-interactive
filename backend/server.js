@@ -50,6 +50,9 @@ let sam3Process = null;
 let isReady = false;
 const commandQueue = [];
 
+// Session metadata storage (sessionId -> {uploadPath, width, height, originalFilename})
+const sessionMetadata = new Map();
+
 function log(message) {
     console.log(`[${new Date().toISOString()}] ${message}`);
 }
@@ -158,8 +161,9 @@ function processQueue() {
 
 // ==================== API ROUTES ====================
 
-// Make sendCommand available to routes
+// Make sendCommand and sessionMetadata available to routes
 app.locals.sendCommand = sendCommand;
+app.locals.sessionMetadata = sessionMetadata;
 
 // Import route modules
 const projectsRouter = require('./routes/projects');
@@ -208,6 +212,15 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
         });
 
         if (response.success) {
+            // Store session metadata for later use (crop creation)
+            sessionMetadata.set(sessionId, {
+                uploadPath: imagePath,
+                width: response.width,
+                height: response.height,
+                originalFilename: req.file.originalname,
+                uploadFilename: req.file.filename
+            });
+
             res.json({
                 success: true,
                 sessionId: sessionId,

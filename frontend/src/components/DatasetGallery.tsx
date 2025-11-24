@@ -138,11 +138,12 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
 
       // Show success message
       alert(
-        `Export successful!\n\n` +
-        `Total: ${result.stats.total} crops\n` +
-        `Train: ${result.stats.train} crops\n` +
-        `Val: ${result.stats.val} crops\n` +
-        `Test: ${result.stats.test} crops\n` +
+        `YOLO Export successful!\n\n` +
+        `Format: ${result.format || 'YOLOv8'}\n` +
+        `Total: ${result.stats.total_images || result.stats.total} images, ${result.stats.total_boxes || 0} boxes\n` +
+        `Train: ${result.stats.train_images || result.stats.train} images\n` +
+        `Val: ${result.stats.val_images || result.stats.val} images\n` +
+        `Test: ${result.stats.test_images || result.stats.test} images\n` +
         `Classes: ${result.stats.classes.join(', ')}`
       );
 
@@ -694,7 +695,7 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
                   lineHeight: '1.6',
                 }}
               >
-                <strong>Export Format:</strong> ZIP file with train/val/test folders grouped by label, plus metadata.json
+                <strong>Export Format:</strong> YOLOv8 detection format - full images with normalized bounding boxes (.txt labels) + data.yaml
               </div>
             </div>
 

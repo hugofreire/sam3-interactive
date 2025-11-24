@@ -200,7 +200,7 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * POST /api/projects/:id/export/zip
- * Export project as ZIP with train/val/test split
+ * Export project as YOLO-format ZIP with train/val/test split
  */
 router.post('/:id/export/zip', async (req, res) => {
     try {
@@ -210,7 +210,7 @@ router.post('/:id/export/zip', async (req, res) => {
             includeMetadata = true
         } = req.body;
 
-        log(`Exporting project: ${id}`);
+        log(`Exporting project (YOLO format): ${id}`);
 
         // Validate split ratios
         const totalRatio = (split.train || 0) + (split.val || 0) + (split.test || 0);
@@ -230,16 +230,17 @@ router.post('/:id/export/zip', async (req, res) => {
             });
         }
 
-        // Create export
-        const result = await exportModule.createDatasetZIP(id, {
+        // Create YOLO export
+        const result = await exportModule.createYOLOZIP(id, {
             split,
             includeMetadata
         });
 
-        log(`✅ Export created: ${result.zipFilename}`);
+        log(`✅ YOLO export created: ${result.zipFilename}`);
 
         res.json({
             success: true,
+            format: 'yolov8',
             downloadUrl: `/api/downloads/${result.zipFilename}`,
             filename: result.zipFilename,
             stats: result.stats

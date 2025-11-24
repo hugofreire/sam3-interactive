@@ -20,6 +20,7 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 - ✅ Multiple candidate masks with confidence scores
 - ✅ Iterative refinement (add more points)
 - ✅ Real-time visualization
+- ✅ **YOLO export** - YOLOv8 detection format with normalized bboxes
 - ⏳ Text-based segmentation (planned)
 
 ---
@@ -32,10 +33,20 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 ├── backend/                          # Express.js backend
 │   ├── server.js                     # Main Express server (port 3001)
 │   ├── sam3_service.py              # Python SAM3 wrapper service
-│   ├── test_service.py              # Python service test script
-│   ├── package.json                 # Node dependencies
-│   └── uploads/                     # Temporary image storage
-│       └── .gitkeep
+│   ├── export.js                    # YOLO export logic
+│   ├── database.js                  # SQLite DB manager
+│   ├── migrations/                  # DB schema migrations
+│   │   ├── 001_initial.sql
+│   │   └── 002_yolo_support.sql
+│   ├── routes/                      # API route handlers
+│   ├── uploads/                     # Temporary image storage (cleaned on shutdown)
+│   ├── exports/                     # Generated YOLO ZIPs (7-day retention)
+│   └── datasets/                    # Persistent project data
+│       ├── projects.db              # Global project list
+│       └── {projectId}/
+│           ├── metadata.db          # Per-project crops/labels DB
+│           ├── crops/               # Crop PNG files (for UI gallery)
+│           └── images/              # Original images (for YOLO export)
 │
 ├── frontend/                         # React + Vite frontend
 │   ├── src/
@@ -137,6 +148,40 @@ A full-stack web application for interactive image segmentation using Meta's SAM
    - **Why**: SAM3 generates 3 masks for ambiguous clicks
    - **How**: `multimask_output=True` on first click
    - **Benefit**: User can choose best mask
+
+---
+
+## 📦 YOLO Export Feature
+
+**Format**: YOLOv8 detection format with normalized bounding boxes
+
+**Key Implementation:**
+- **Original images persisted**: Copies from `uploads/` → `datasets/{projectId}/images/` on first crop save
+- **Image dimensions tracked**: `source_width`, `source_height` stored in DB (migration 002)
+- **Image-level splitting**: All crops from same image stay in same train/val/test split
+- **Stable class IDs**: Alphabetically ordered labels (e.g., `car=0, person=1, truck=2`)
+- **YOLO format**: `class_id cx cy w h` (normalized 0-1) in `.txt` files + `data.yaml`
+
+**Important Caveats:**
+- ⚠️ **Old crops incompatible**: Crops created before migration 002 lack required metadata (dimensions, persisted images)
+- ⚠️ **Export fails gracefully**: "No crops with persisted images found" if project has only old crops
+- ✅ **New uploads work automatically**: All crops from new uploads (post-migration) include YOLO metadata
+
+**Files Modified:**
+- `backend/migrations/002_yolo_support.sql` - Add dimensions & persisted_image_path
+- `backend/export.js` - Complete YOLO export rewrite (replaces crop-only export)
+- `backend/database.js` - getCropsGroupedByImage(), getProjectImagesDir()
+- `backend/server.js` - Track session metadata (uploadPath, width, height)
+- `backend/routes/crops.js` - Persist images & store dimensions on crop save
+- `backend/routes/projects.js` - Use createYOLOZIP() instead of createDatasetZIP()
+- `frontend/src/components/DatasetGallery.tsx` - YOLO format UI text
+
+**Database Schema (002):**
+```sql
+ALTER TABLE crops ADD COLUMN source_width INTEGER;
+ALTER TABLE crops ADD COLUMN source_height INTEGER;
+ALTER TABLE crops ADD COLUMN persisted_image_path TEXT;
+```
 
 ---
 

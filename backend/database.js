@@ -176,6 +176,13 @@ function getProjectCropsDir(projectId) {
 }
 
 /**
+ * Get project images directory path (for persisted originals)
+ */
+function getProjectImagesDir(projectId) {
+    return path.join(DATASETS_DIR, projectId, 'images');
+}
+
+/**
  * Initialize or open a project database
  */
 async function initProjectDatabase(projectId) {
@@ -217,13 +224,36 @@ async function initProjectDatabase(projectId) {
  * Run database migrations
  */
 async function runMigrations(db) {
-    // Read migration file
-    const migrationPath = path.join(MIGRATIONS_DIR, '001_initial.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
+    // Get current schema version
+    let currentVersion = '000';
+    try {
+        const result = await dbGet(db, "SELECT value FROM project_metadata WHERE key = 'schema_version'", []);
+        if (result) {
+            currentVersion = result.value;
+        }
+    } catch (err) {
+        // Table doesn't exist yet, start from scratch
+        currentVersion = '000';
+    }
 
-    // Execute migration
-    await dbExec(db, migrationSQL);
-    console.log('[DB] Migrations applied successfully');
+    // Run migrations in order
+    const migrations = ['001_initial.sql', '002_yolo_support.sql'];
+
+    for (const migrationFile of migrations) {
+        const migrationVersion = migrationFile.split('_')[0];
+
+        if (migrationVersion > currentVersion) {
+            const migrationPath = path.join(MIGRATIONS_DIR, migrationFile);
+
+            if (fs.existsSync(migrationPath)) {
+                const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
+                await dbExec(db, migrationSQL);
+                console.log(`[DB] Applied migration: ${migrationFile}`);
+            }
+        }
+    }
+
+    console.log('[DB] Migrations completed');
 }
 
 /**
@@ -486,7 +516,10 @@ async function createCrop(projectId, cropData) {
         bbox,
         mask_score,
         mask_area,
-        background_mode = 'transparent'
+        background_mode = 'transparent',
+        source_width,
+        source_height,
+        persisted_image_path
     } = cropData;
 
     const cropId = uuidv4();
@@ -498,8 +531,9 @@ async function createCrop(projectId, cropData) {
         projectDB,
         `INSERT INTO crops (
             id, label, filename, file_path, source_image, source_session_id,
-            bbox, mask_score, mask_area, background_mode
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            bbox, mask_score, mask_area, background_mode,
+            source_width, source_height, persisted_image_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             cropId,
             label,
@@ -510,7 +544,10 @@ async function createCrop(projectId, cropData) {
             JSON.stringify(bbox),
             mask_score,
             mask_area,
-            background_mode
+            background_mode,
+            source_width,
+            source_height,
+            persisted_image_path
         ]
     );
 
@@ -525,7 +562,10 @@ async function createCrop(projectId, cropData) {
         bbox,
         mask_score,
         mask_area,
-        background_mode
+        background_mode,
+        source_width,
+        source_height,
+        persisted_image_path
     };
 }
 
@@ -559,6 +599,9 @@ async function getCrops(projectId, { label, limit = 100, offset = 0 } = {}) {
         mask_score: row.mask_score,
         mask_area: row.mask_area,
         background_mode: row.background_mode,
+        source_width: row.source_width,
+        source_height: row.source_height,
+        persisted_image_path: row.persisted_image_path,
         created_at: row.created_at
     }));
 }
@@ -590,6 +633,9 @@ async function getCropById(projectId, cropId) {
         mask_score: row.mask_score,
         mask_area: row.mask_area,
         background_mode: row.background_mode,
+        source_width: row.source_width,
+        source_height: row.source_height,
+        persisted_image_path: row.persisted_image_path,
         created_at: row.created_at
     };
 }
@@ -633,6 +679,48 @@ async function deleteCrop(projectId, cropId) {
     console.log(`[DB] Crop deleted: ${cropId}`);
 }
 
+/**
+ * Get all crops grouped by source image (for YOLO export)
+ * Returns: Map<persisted_image_path, Crop[]>
+ */
+async function getCropsGroupedByImage(projectId) {
+    const projectDB = getProjectDB(projectId);
+
+    const rows = await dbAll(
+        projectDB,
+        'SELECT * FROM crops WHERE persisted_image_path IS NOT NULL ORDER BY persisted_image_path, created_at',
+        []
+    );
+
+    const grouped = new Map();
+
+    rows.forEach(row => {
+        const crop = {
+            id: row.id,
+            label: row.label,
+            filename: row.filename,
+            file_path: row.file_path,
+            source_image: row.source_image,
+            source_session_id: row.source_session_id,
+            bbox: JSON.parse(row.bbox),
+            mask_score: row.mask_score,
+            mask_area: row.mask_area,
+            background_mode: row.background_mode,
+            source_width: row.source_width,
+            source_height: row.source_height,
+            persisted_image_path: row.persisted_image_path,
+            created_at: row.created_at
+        };
+
+        if (!grouped.has(row.persisted_image_path)) {
+            grouped.set(row.persisted_image_path, []);
+        }
+        grouped.get(row.persisted_image_path).push(crop);
+    });
+
+    return grouped;
+}
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -649,6 +737,7 @@ module.exports = {
     getProjectDB,
     getProjectDir,
     getProjectCropsDir,
+    getProjectImagesDir,
 
     // Utility functions for queries
     dbRun,
@@ -667,6 +756,7 @@ module.exports = {
     createCrop,
     getCrops,
     getCropById,
+    getCropsGroupedByImage,
     updateCropLabel,
     deleteCrop
 };
