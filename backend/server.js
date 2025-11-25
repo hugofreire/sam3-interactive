@@ -168,6 +168,7 @@ app.locals.sessionMetadata = sessionMetadata;
 // Import route modules
 const projectsRouter = require('./routes/projects');
 const cropsRouter = require('./routes/crops');
+const trainingRouter = require('./routes/training');
 
 // Mount routes
 app.use('/api/projects', projectsRouter);
@@ -179,6 +180,11 @@ app.use('/api/projects/:projectId/crops', cropsRouterWithProject);
 
 // Standalone crops routes (for image serving and crop operations by ID)
 app.use('/api/crops', cropsRouter);
+
+// Training routes
+const trainingRouterWithProject = express.Router({ mergeParams: true });
+trainingRouterWithProject.use(trainingRouter);
+app.use('/api/projects/:projectId/training', trainingRouterWithProject);
 
 // ==================== SAM3 ENDPOINTS ====================
 

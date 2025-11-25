@@ -6,6 +6,7 @@ import CropAndLabel from './components/CropAndLabel';
 import DatasetGallery from './components/DatasetGallery';
 import LabelingWorkspace from './components/LabelingWorkspace';
 import ProjectSettingsDialog from './components/ProjectSettingsDialog';
+import TrainingPanel from './components/TrainingPanel';
 import type { Session, Project } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { getProject } from './api/projects';
 import './App.css';
 
-type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery' | 'labeling';
+type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery' | 'labeling' | 'training';
 
 function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -149,6 +150,12 @@ function App() {
                   onClick={handleViewDataset}
                 >
                   📊 View Dataset
+                </Button>
+                <Button
+                  variant={workflow === 'training' ? 'default' : 'secondary'}
+                  onClick={() => setWorkflow('training')}
+                >
+                  🤖 Training
                 </Button>
                 <Button
                   variant="outline"
@@ -311,6 +318,14 @@ function App() {
               key={labelingKey}
               project={currentProject}
               onProjectUpdated={refreshProject}
+            />
+          ) : workflow === 'training' ? (
+            // Training panel
+            <TrainingPanel
+              projectId={currentProject.id}
+              projectName={currentProject.name}
+              cropCount={currentProject.num_crops}
+              labelCount={currentProject.num_labels}
             />
           ) : null}
         </main>

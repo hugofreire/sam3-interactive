@@ -68,9 +68,25 @@ function splitImages(cropsGroupedByImage, splitRatios = { train: 0.7, val: 0.2, 
     // Shuffle images for random distribution
     const shuffled = [...imagePaths].sort(() => Math.random() - 0.5);
 
+    // Calculate split counts, ensuring minimum 1 for each non-zero split
+    let trainCount = Math.floor(total * splitRatios.train);
+    let valCount = Math.floor(total * splitRatios.val);
+    let testCount = total - trainCount - valCount;
+
+    // Ensure val has at least 1 image if val ratio > 0 and we have enough images
+    if (splitRatios.val > 0 && valCount === 0 && total >= 2) {
+        valCount = 1;
+        // Take from train if train has more than 1
+        if (trainCount > 1) {
+            trainCount--;
+        } else {
+            testCount--;
+        }
+    }
+
     // Calculate split indices
-    const trainEnd = Math.floor(total * splitRatios.train);
-    const valEnd = trainEnd + Math.floor(total * splitRatios.val);
+    const trainEnd = trainCount;
+    const valEnd = trainEnd + valCount;
 
     // Split image paths
     const trainPaths = shuffled.slice(0, trainEnd);
@@ -102,24 +118,38 @@ function splitImages(cropsGroupedByImage, splitRatios = { train: 0.7, val: 0.2, 
 
 /**
  * Convert bbox from [x, y, w, h] pixels to YOLO format [cx, cy, w, h] normalized
+ * Clips bbox to image bounds and clamps output to [0, 1] range
  *
  * @param {Array} bbox - [x, y, width, height] in pixels
  * @param {Number} imgWidth - Image width in pixels
  * @param {Number} imgHeight - Image height in pixels
- * @returns {Array} - [center_x, center_y, width, height] normalized 0-1
+ * @returns {Array} - [center_x, center_y, width, height] normalized 0-1, clamped
  */
 function bboxToYOLO(bbox, imgWidth, imgHeight) {
-    const [x, y, w, h] = bbox;
+    let [x, y, w, h] = bbox;
+
+    // Clip bbox to image bounds (handle boxes extending beyond image)
+    const x1 = Math.max(0, x);
+    const y1 = Math.max(0, y);
+    const x2 = Math.min(imgWidth, x + w);
+    const y2 = Math.min(imgHeight, y + h);
+
+    // Recalculate width/height after clipping
+    w = x2 - x1;
+    h = y2 - y1;
 
     // Calculate center point
-    const centerX = (x + w / 2) / imgWidth;
-    const centerY = (y + h / 2) / imgHeight;
+    const centerX = (x1 + w / 2) / imgWidth;
+    const centerY = (y1 + h / 2) / imgHeight;
 
     // Normalize width and height
     const normWidth = w / imgWidth;
     const normHeight = h / imgHeight;
 
-    return [centerX, centerY, normWidth, normHeight];
+    // Clamp all values to [0, 1] for safety
+    const clamp = (val) => Math.max(0, Math.min(1, val));
+
+    return [clamp(centerX), clamp(centerY), clamp(normWidth), clamp(normHeight)];
 }
 
 /**
@@ -131,6 +161,7 @@ function bboxToYOLO(bbox, imgWidth, imgHeight) {
  */
 function generateYOLOLabels(crops, classMap) {
     const lines = [];
+    const MIN_BOX_SIZE = 0.001; // Minimum normalized box dimension
 
     crops.forEach(crop => {
         const classId = classMap[crop.label];
@@ -142,8 +173,14 @@ function generateYOLOLabels(crops, classMap) {
             return;
         }
 
-        // Convert bbox to YOLO format
+        // Convert bbox to YOLO format (with clipping and clamping)
         const [cx, cy, w, h] = bboxToYOLO(crop.bbox, imgWidth, imgHeight);
+
+        // Skip boxes that are too small after clipping
+        if (w < MIN_BOX_SIZE || h < MIN_BOX_SIZE) {
+            log(`⚠️  Skipping crop ${crop.id}: box too small after clipping (${w.toFixed(4)} x ${h.toFixed(4)})`);
+            return;
+        }
 
         // YOLO format: class_id center_x center_y width height
         // All values space-separated, normalized to 6 decimal places
