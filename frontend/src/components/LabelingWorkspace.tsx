@@ -535,15 +535,18 @@ export default function LabelingWorkspace({
 
         <div className="flex items-center gap-2">
           {cropCount > 0 && (
-            <Badge variant="secondary">{cropCount} crops</Badge>
+            <Badge variant="default" className="bg-green-600 text-white px-3 py-1">
+              {cropCount} object{cropCount !== 1 ? 's' : ''} labeled
+            </Badge>
           )}
           <Button
-            variant="outline"
+            variant={cropCount > 0 ? "default" : "outline"}
             size="sm"
             onClick={finishImage}
             disabled={!currentImage || loadingSession}
+            className={cropCount > 0 ? "bg-blue-600 hover:bg-blue-700" : ""}
           >
-            Finish Image [N]
+            Done - Next Image [N]
           </Button>
         </div>
       </div>
@@ -562,6 +565,15 @@ export default function LabelingWorkspace({
                 <Alert variant="destructive" className="py-2">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
+              </div>
+            )}
+
+            {/* Initial instruction for fresh images */}
+            {cropCount === 0 && masks.length === 0 && (
+              <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-center">
+                <p className="text-amber-700 dark:text-amber-300 text-sm font-medium">
+                  Label ALL objects in this image before moving to the next one
+                </p>
               </div>
             )}
 
@@ -604,6 +616,18 @@ export default function LabelingWorkspace({
                 <Button variant="ghost" size="sm" onClick={clearSegmentation}>
                   Clear [Esc]
                 </Button>
+              </div>
+            )}
+
+            {/* Multi-object labeling prompt */}
+            {cropCount > 0 && masks.length === 0 && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center">
+                <p className="text-blue-700 dark:text-blue-300 font-medium">
+                  Click to label more objects on this image
+                </p>
+                <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                  {cropCount} object{cropCount !== 1 ? 's' : ''} saved. Press <kbd className="px-1 bg-blue-100 dark:bg-blue-900 rounded">N</kbd> when done with this image.
+                </p>
               </div>
             )}
 
