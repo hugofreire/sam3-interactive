@@ -351,7 +351,7 @@ export default function LabelingWorkspace({
         sessionId: session.sessionId,
         maskIndex: selectedMaskIndex,
         label: selectedLabel.name,
-        backgroundMode: 'transparent',
+        backgroundMode: 'original', // Keep full bbox with original background
         sourceImage: currentImage.original_filename,
         maskScore: scores[selectedMaskIndex],
         imageId: currentImage.id,
