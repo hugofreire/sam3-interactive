@@ -159,6 +159,19 @@ router.post('/', async (req, res) => {
 
         log(`✅ Crop created: ${crop.id} - ${label}`);
 
+        // Add undo entry for this crop creation
+        try {
+            await db.addUndoEntry(projectId, {
+                action_type: 'crop_create',
+                crop_id: crop.id,
+                crop_data: crop,
+                image_id: req.body.imageId || null  // Link to project image if provided
+            });
+        } catch (undoErr) {
+            // Don't fail the crop creation if undo entry fails
+            console.error('Warning: Failed to add undo entry:', undoErr);
+        }
+
         // Return crop info with URL
         res.json({
             success: true,

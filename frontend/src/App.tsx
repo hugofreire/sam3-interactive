@@ -1,23 +1,28 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import ImageUpload from './components/ImageUpload';
 import InteractiveCanvas from './components/InteractiveCanvas';
 import ProjectManager from './components/ProjectManager';
 import CropAndLabel from './components/CropAndLabel';
 import DatasetGallery from './components/DatasetGallery';
+import LabelingWorkspace from './components/LabelingWorkspace';
+import ProjectSettingsDialog from './components/ProjectSettingsDialog';
 import type { Session, Project } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { getProject } from './api/projects';
 import './App.css';
 
-type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery';
+type WorkflowState = 'upload' | 'segment' | 'label' | 'gallery' | 'labeling';
 
 function App() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowState>('upload');
   const [selectedMaskIndex, setSelectedMaskIndex] = useState<number>(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [labelingKey, setLabelingKey] = useState(0); // Used to refresh LabelingWorkspace
 
   const handleImageUploaded = (newSession: Session) => {
     console.log('Session created:', newSession);
@@ -35,6 +40,7 @@ function App() {
     // Reset to upload state for next image
     setSession(null);
     setWorkflow('upload');
+    refreshProject();
   };
 
   const handleViewDataset = () => {
@@ -56,6 +62,35 @@ function App() {
     // Reset workflow when switching projects
     setSession(null);
     setWorkflow('upload');
+  };
+
+  // Refresh current project data
+  const refreshProject = useCallback(async () => {
+    if (currentProject) {
+      try {
+        const updated = await getProject(currentProject.id);
+        setCurrentProject(updated);
+      } catch (err) {
+        console.error('Error refreshing project:', err);
+      }
+    }
+  }, [currentProject?.id]);
+
+  const handleProjectUpdated = (project: Project) => {
+    setCurrentProject(project);
+  };
+
+  // When settings dialog closes, refresh labeling workspace
+  const handleSettingsChange = (open: boolean) => {
+    setShowSettings(open);
+    if (!open) {
+      // Settings closed - refresh labeling workspace
+      setLabelingKey((k) => k + 1);
+    }
+  };
+
+  const handleStartLabeling = () => {
+    setWorkflow('labeling');
   };
 
   return (
@@ -94,6 +129,12 @@ function App() {
             {currentProject && (
               <div className="flex gap-3">
                 <Button
+                  variant={workflow === 'labeling' ? 'default' : 'secondary'}
+                  onClick={handleStartLabeling}
+                >
+                  🏷️ Start Labeling
+                </Button>
+                <Button
                   variant={
                     workflow === 'upload' || workflow === 'segment' || workflow === 'label'
                       ? 'default'
@@ -101,13 +142,19 @@ function App() {
                   }
                   onClick={() => setWorkflow('upload')}
                 >
-                  📁 Label Images
+                  📷 Single Image
                 </Button>
                 <Button
                   variant={workflow === 'gallery' ? 'default' : 'secondary'}
                   onClick={handleViewDataset}
                 >
                   📊 View Dataset
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSettings(true)}
+                >
+                  ⚙️ Settings
                 </Button>
               </div>
             )}
@@ -258,6 +305,13 @@ function App() {
           ) : workflow === 'gallery' ? (
             // Gallery state
             <DatasetGallery projectId={currentProject.id} projectName={currentProject.name} />
+          ) : workflow === 'labeling' ? (
+            // New labeling workspace
+            <LabelingWorkspace
+              key={labelingKey}
+              project={currentProject}
+              onProjectUpdated={refreshProject}
+            />
           ) : null}
         </main>
 
@@ -276,6 +330,17 @@ function App() {
           </p>
         </footer>
       </div>
+
+      {/* Project Settings Dialog */}
+      {currentProject && (
+        <ProjectSettingsDialog
+          open={showSettings}
+          onOpenChange={handleSettingsChange}
+          project={currentProject}
+          onProjectUpdated={handleProjectUpdated}
+          onImagesUpdated={refreshProject}
+        />
+      )}
     </div>
   );
 }

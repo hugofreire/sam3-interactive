@@ -124,6 +124,7 @@ export interface CreateCropRequest {
   bbox?: number[];
   maskScore?: number;
   maskArea?: number;
+  imageId?: string;  // Link to project image for undo tracking
 }
 
 export interface UpdateCropRequest {
@@ -191,4 +192,124 @@ export interface ExportResponse {
 export interface ErrorResponse {
   success: false;
   error: string;
+}
+
+// ==================== IMAGE MANAGEMENT TYPES ====================
+
+// Image status for labeling workflow
+export type ImageStatus = 'pending' | 'in_progress' | 'completed';
+
+// Project image information
+export interface ProjectImage {
+  id: string;
+  original_filename: string;
+  stored_filename: string;
+  file_path: string;
+  width: number;
+  height: number;
+  file_size?: number;
+  status: ImageStatus;
+  sort_order: number;
+  created_at: string;
+  completed_at?: string;
+}
+
+// Image statistics
+export interface ImageStats {
+  pending: number;
+  in_progress: number;
+  completed: number;
+  total: number;
+}
+
+// Predefined project label (for labeling workflow)
+export interface ProjectLabel {
+  id: number;
+  name: string;
+  color?: string;
+  keyboard_shortcut?: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+// Undo entry for undo history
+export interface UndoEntry {
+  id: number;
+  action_type: 'crop_create' | 'crop_delete';
+  crop_id: string;
+  crop_data: Crop;
+  image_id?: string;
+  created_at: string;
+}
+
+// ==================== IMAGE API TYPES ====================
+
+export interface ProjectImagesResponse {
+  success: boolean;
+  images: ProjectImage[];
+  stats: ImageStats;
+}
+
+export interface ProjectImageResponse {
+  success: boolean;
+  image: ProjectImage;
+  nextImage?: ProjectImage; // For auto-advance after completing
+}
+
+export interface BatchUploadResponse {
+  success: boolean;
+  uploaded: number;
+  failed: number;
+  images: ProjectImage[];
+  errors?: Array<{ filename: string; error: string }>;
+}
+
+// ==================== LABEL API TYPES ====================
+
+export interface ProjectLabelsResponse {
+  success: boolean;
+  labels: ProjectLabel[];
+  total: number;
+}
+
+export interface ProjectLabelResponse {
+  success: boolean;
+  label: ProjectLabel;
+}
+
+export interface CreateProjectLabelRequest {
+  name: string;
+  color?: string;
+  keyboard_shortcut?: string;
+  sort_order?: number;
+}
+
+export interface UpdateProjectLabelRequest {
+  name?: string;
+  color?: string;
+  keyboard_shortcut?: string;
+  sort_order?: number;
+}
+
+// ==================== UNDO API TYPES ====================
+
+export interface UndoResponse {
+  success: boolean;
+  undone?: UndoEntry;
+  message?: string;
+  error?: string;
+}
+
+// ==================== ENHANCED CREATE PROJECT ====================
+
+export interface CreateProjectWithLabelsRequest {
+  name: string;
+  description?: string;
+  labels?: Array<{
+    name: string;
+    color?: string;
+  }>;
+  settings?: {
+    background_mode?: BackgroundMode;
+  };
 }

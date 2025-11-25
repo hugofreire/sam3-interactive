@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProjects, createProject, deleteProject } from '../api/projects';
+import { getProjects, createProject, deleteProject, createProjectLabel } from '../api/projects';
 import type { Project } from '../types';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 interface ProjectManagerProps {
@@ -23,6 +24,9 @@ export default function ProjectManager({
   const [loading, setLoading] = useState(false);
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectLabels, setNewProjectLabels] = useState<string[]>([]);
+  const [newLabelInput, setNewLabelInput] = useState('');
+  const [creatingProject, setCreatingProject] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Load projects on mount
@@ -49,13 +53,34 @@ export default function ProjectManager({
     }
   };
 
+  const handleAddLabel = () => {
+    const label = newLabelInput.trim();
+    if (label && !newProjectLabels.includes(label)) {
+      setNewProjectLabels([...newProjectLabels, label]);
+      setNewLabelInput('');
+    }
+  };
+
+  const handleRemoveLabel = (label: string) => {
+    setNewProjectLabels(newProjectLabels.filter((l) => l !== label));
+  };
+
+  const resetCreateDialog = () => {
+    setNewProjectName('');
+    setNewProjectLabels([]);
+    setNewLabelInput('');
+    setShowNewProjectDialog(false);
+  };
+
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) {
       alert('Please enter a project name');
       return;
     }
 
+    setCreatingProject(true);
     try {
+      // Create project
       const project = await createProject({
         name: newProjectName.trim(),
         settings: {
@@ -63,13 +88,26 @@ export default function ProjectManager({
         },
       });
 
+      // Create predefined labels
+      for (let i = 0; i < newProjectLabels.length; i++) {
+        try {
+          await createProjectLabel(project.id, {
+            name: newProjectLabels[i],
+            sort_order: i,
+          });
+        } catch (err) {
+          console.error(`Failed to create label "${newProjectLabels[i]}":`, err);
+        }
+      }
+
       setProjects([...projects, project]);
-      setNewProjectName('');
-      setShowNewProjectDialog(false);
+      resetCreateDialog();
       onProjectSelect(project);
     } catch (err) {
       console.error('Failed to create project:', err);
       alert('Failed to create project');
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -112,11 +150,12 @@ export default function ProjectManager({
           <DialogTrigger asChild>
             <Button className="w-full">+ New Project</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Project</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Project Name */}
               <div>
                 <Label htmlFor="project-name">Project Name</Label>
                 <Input
@@ -125,28 +164,87 @@ export default function ProjectManager({
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && newProjectName.trim()) {
                       handleCreateProject();
                     } else if (e.key === 'Escape') {
-                      setShowNewProjectDialog(false);
-                      setNewProjectName('');
+                      resetCreateDialog();
                     }
                   }}
                   autoFocus
                 />
               </div>
+
+              <Separator />
+
+              {/* Labels Section */}
+              <div>
+                <Label>Labels (optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Define labels for your dataset (e.g., car, person, truck)
+                </p>
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    placeholder="Add a label..."
+                    value={newLabelInput}
+                    onChange={(e) => setNewLabelInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddLabel();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleAddLabel}
+                    disabled={!newLabelInput.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {/* Label chips */}
+                {newProjectLabels.length > 0 && (
+                  <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-md max-h-24 overflow-y-auto">
+                    {newProjectLabels.map((label, idx) => (
+                      <Badge
+                        key={label}
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleRemoveLabel(label)}
+                      >
+                        <span className="text-muted-foreground mr-1 text-xs">
+                          {idx + 1}.
+                        </span>
+                        {label}
+                        <span className="ml-1 opacity-60">×</span>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {newProjectLabels.length === 0 && (
+                  <div className="text-xs text-muted-foreground italic">
+                    No labels added. You can add them later in project settings.
+                  </div>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button
                 variant="secondary"
-                onClick={() => {
-                  setShowNewProjectDialog(false);
-                  setNewProjectName('');
-                }}
+                onClick={resetCreateDialog}
+                disabled={creatingProject}
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateProject}>Create</Button>
+              <Button
+                onClick={handleCreateProject}
+                disabled={!newProjectName.trim() || creatingProject}
+              >
+                {creatingProject ? 'Creating...' : 'Create Project'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

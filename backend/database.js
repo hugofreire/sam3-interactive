@@ -237,7 +237,7 @@ async function runMigrations(db) {
     }
 
     // Run migrations in order
-    const migrations = ['001_initial.sql', '002_yolo_support.sql'];
+    const migrations = ['001_initial.sql', '002_yolo_support.sql', '003_image_management.sql'];
 
     for (const migrationFile of migrations) {
         const migrationVersion = migrationFile.split('_')[0];
@@ -722,6 +722,415 @@ async function getCropsGroupedByImage(projectId) {
 }
 
 // ============================================================================
+// PROJECT IMAGES OPERATIONS
+// ============================================================================
+
+/**
+ * Create project image entry
+ */
+async function createProjectImage(projectId, imageData) {
+    const {
+        original_filename,
+        stored_filename,
+        file_path,
+        width,
+        height,
+        file_size = null,
+        status = 'pending',
+        sort_order = 0
+    } = imageData;
+
+    const imageId = uuidv4();
+    const projectDB = getProjectDB(projectId);
+
+    await dbRun(
+        projectDB,
+        `INSERT INTO project_images (
+            id, original_filename, stored_filename, file_path,
+            width, height, file_size, status, sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [imageId, original_filename, stored_filename, file_path, width, height, file_size, status, sort_order]
+    );
+
+    console.log(`[DB] Project image created: ${imageId} - ${original_filename}`);
+
+    return {
+        id: imageId,
+        original_filename,
+        stored_filename,
+        file_path,
+        width,
+        height,
+        file_size,
+        status,
+        sort_order,
+        created_at: new Date().toISOString()
+    };
+}
+
+/**
+ * Get all project images with optional filters
+ */
+async function getProjectImages(projectId, { status, limit, offset = 0 } = {}) {
+    const projectDB = getProjectDB(projectId);
+
+    let sql = 'SELECT * FROM project_images';
+    const params = [];
+
+    if (status) {
+        sql += ' WHERE status = ?';
+        params.push(status);
+    }
+
+    sql += ' ORDER BY sort_order ASC, created_at ASC';
+
+    if (limit) {
+        sql += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+    }
+
+    const rows = await dbAll(projectDB, sql, params);
+
+    return rows.map(row => ({
+        id: row.id,
+        original_filename: row.original_filename,
+        stored_filename: row.stored_filename,
+        file_path: row.file_path,
+        width: row.width,
+        height: row.height,
+        file_size: row.file_size,
+        status: row.status,
+        sort_order: row.sort_order,
+        created_at: row.created_at,
+        completed_at: row.completed_at
+    }));
+}
+
+/**
+ * Get project image by ID
+ */
+async function getProjectImageById(projectId, imageId) {
+    const projectDB = getProjectDB(projectId);
+
+    const row = await dbGet(
+        projectDB,
+        'SELECT * FROM project_images WHERE id = ?',
+        [imageId]
+    );
+
+    if (!row) return null;
+
+    return {
+        id: row.id,
+        original_filename: row.original_filename,
+        stored_filename: row.stored_filename,
+        file_path: row.file_path,
+        width: row.width,
+        height: row.height,
+        file_size: row.file_size,
+        status: row.status,
+        sort_order: row.sort_order,
+        created_at: row.created_at,
+        completed_at: row.completed_at
+    };
+}
+
+/**
+ * Update image status
+ */
+async function updateImageStatus(projectId, imageId, status) {
+    const projectDB = getProjectDB(projectId);
+
+    let sql = 'UPDATE project_images SET status = ?';
+    const params = [status];
+
+    if (status === 'completed') {
+        sql += ", completed_at = datetime('now')";
+    }
+
+    sql += ' WHERE id = ?';
+    params.push(imageId);
+
+    await dbRun(projectDB, sql, params);
+    console.log(`[DB] Image status updated: ${imageId} -> ${status}`);
+}
+
+/**
+ * Get next pending image (for auto-advance)
+ */
+async function getNextPendingImage(projectId) {
+    const projectDB = getProjectDB(projectId);
+
+    const row = await dbGet(
+        projectDB,
+        "SELECT * FROM project_images WHERE status = 'pending' ORDER BY sort_order ASC, created_at ASC LIMIT 1",
+        []
+    );
+
+    if (!row) return null;
+
+    return {
+        id: row.id,
+        original_filename: row.original_filename,
+        stored_filename: row.stored_filename,
+        file_path: row.file_path,
+        width: row.width,
+        height: row.height,
+        file_size: row.file_size,
+        status: row.status,
+        sort_order: row.sort_order,
+        created_at: row.created_at,
+        completed_at: row.completed_at
+    };
+}
+
+/**
+ * Get image statistics
+ */
+async function getImageStats(projectId) {
+    const projectDB = getProjectDB(projectId);
+
+    const stats = await dbAll(
+        projectDB,
+        'SELECT status, COUNT(*) as count FROM project_images GROUP BY status',
+        []
+    );
+
+    const result = {
+        pending: 0,
+        in_progress: 0,
+        completed: 0,
+        total: 0
+    };
+
+    stats.forEach(row => {
+        result[row.status] = row.count;
+        result.total += row.count;
+    });
+
+    return result;
+}
+
+/**
+ * Delete project image
+ */
+async function deleteProjectImage(projectId, imageId) {
+    const projectDB = getProjectDB(projectId);
+
+    // Get image info
+    const image = await getProjectImageById(projectId, imageId);
+    if (!image) {
+        throw new Error('Image not found');
+    }
+
+    // Delete file
+    const fullPath = path.join(DATASETS_DIR, projectId, image.file_path);
+    if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+    }
+
+    // Delete from DB
+    await dbRun(projectDB, 'DELETE FROM project_images WHERE id = ?', [imageId]);
+
+    console.log(`[DB] Project image deleted: ${imageId}`);
+}
+
+// ============================================================================
+// PROJECT LABELS OPERATIONS (Predefined Labels)
+// ============================================================================
+
+/**
+ * Create predefined project label
+ */
+async function createProjectLabel(projectId, labelData) {
+    const {
+        name,
+        color = null,
+        keyboard_shortcut = null,
+        sort_order = 0
+    } = labelData;
+
+    const projectDB = getProjectDB(projectId);
+
+    const result = await dbRun(
+        projectDB,
+        `INSERT INTO project_labels (name, color, keyboard_shortcut, sort_order)
+         VALUES (?, ?, ?, ?)`,
+        [name, color, keyboard_shortcut, sort_order]
+    );
+
+    console.log(`[DB] Project label created: ${name}`);
+
+    return {
+        id: result.lastID,
+        name,
+        color,
+        keyboard_shortcut,
+        sort_order,
+        created_at: new Date().toISOString()
+    };
+}
+
+/**
+ * Get all predefined project labels
+ */
+async function getProjectLabels(projectId) {
+    const projectDB = getProjectDB(projectId);
+
+    const rows = await dbAll(
+        projectDB,
+        'SELECT * FROM project_labels ORDER BY sort_order ASC, id ASC',
+        []
+    );
+
+    return rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        color: row.color,
+        keyboard_shortcut: row.keyboard_shortcut,
+        sort_order: row.sort_order,
+        created_at: row.created_at
+    }));
+}
+
+/**
+ * Update predefined project label
+ */
+async function updateProjectLabel(projectId, labelId, updates) {
+    const projectDB = getProjectDB(projectId);
+
+    const { name, color, keyboard_shortcut, sort_order } = updates;
+    const setClauses = [];
+    const params = [];
+
+    if (name !== undefined) {
+        setClauses.push('name = ?');
+        params.push(name);
+    }
+    if (color !== undefined) {
+        setClauses.push('color = ?');
+        params.push(color);
+    }
+    if (keyboard_shortcut !== undefined) {
+        setClauses.push('keyboard_shortcut = ?');
+        params.push(keyboard_shortcut);
+    }
+    if (sort_order !== undefined) {
+        setClauses.push('sort_order = ?');
+        params.push(sort_order);
+    }
+
+    if (setClauses.length === 0) return;
+
+    params.push(labelId);
+    const sql = `UPDATE project_labels SET ${setClauses.join(', ')} WHERE id = ?`;
+
+    await dbRun(projectDB, sql, params);
+    console.log(`[DB] Project label updated: ${labelId}`);
+}
+
+/**
+ * Delete predefined project label
+ * Returns error if label is in use by crops
+ */
+async function deleteProjectLabel(projectId, labelId) {
+    const projectDB = getProjectDB(projectId);
+
+    // Get label name first
+    const label = await dbGet(projectDB, 'SELECT name FROM project_labels WHERE id = ?', [labelId]);
+    if (!label) {
+        throw new Error('Label not found');
+    }
+
+    // Check if label is in use
+    const usage = await dbGet(
+        projectDB,
+        'SELECT COUNT(*) as count FROM crops WHERE label = ?',
+        [label.name]
+    );
+
+    if (usage && usage.count > 0) {
+        const error = new Error(`Label "${label.name}" is in use by ${usage.count} crops`);
+        error.code = 'LABEL_IN_USE';
+        error.count = usage.count;
+        throw error;
+    }
+
+    // Delete label
+    await dbRun(projectDB, 'DELETE FROM project_labels WHERE id = ?', [labelId]);
+    console.log(`[DB] Project label deleted: ${labelId}`);
+}
+
+// ============================================================================
+// UNDO HISTORY OPERATIONS
+// ============================================================================
+
+/**
+ * Add entry to undo history (keeps max 10)
+ */
+async function addUndoEntry(projectId, { action_type, crop_id, crop_data, image_id = null }) {
+    const projectDB = getProjectDB(projectId);
+
+    // Insert new entry
+    await dbRun(
+        projectDB,
+        `INSERT INTO undo_history (action_type, crop_id, crop_data, image_id)
+         VALUES (?, ?, ?, ?)`,
+        [action_type, crop_id, JSON.stringify(crop_data), image_id]
+    );
+
+    // Keep only last 10 entries
+    await dbRun(
+        projectDB,
+        `DELETE FROM undo_history WHERE id NOT IN (
+            SELECT id FROM undo_history ORDER BY created_at DESC LIMIT 10
+        )`,
+        []
+    );
+
+    console.log(`[DB] Undo entry added: ${action_type} for crop ${crop_id}`);
+}
+
+/**
+ * Pop (get and remove) last undo entry
+ */
+async function popUndoEntry(projectId) {
+    const projectDB = getProjectDB(projectId);
+
+    // Get last entry
+    const entry = await dbGet(
+        projectDB,
+        'SELECT * FROM undo_history ORDER BY created_at DESC LIMIT 1',
+        []
+    );
+
+    if (!entry) return null;
+
+    // Delete it
+    await dbRun(projectDB, 'DELETE FROM undo_history WHERE id = ?', [entry.id]);
+
+    console.log(`[DB] Undo entry popped: ${entry.action_type} for crop ${entry.crop_id}`);
+
+    return {
+        id: entry.id,
+        action_type: entry.action_type,
+        crop_id: entry.crop_id,
+        crop_data: JSON.parse(entry.crop_data),
+        image_id: entry.image_id,
+        created_at: entry.created_at
+    };
+}
+
+/**
+ * Clear undo history for project
+ */
+async function clearUndoHistory(projectId) {
+    const projectDB = getProjectDB(projectId);
+    await dbRun(projectDB, 'DELETE FROM undo_history', []);
+    console.log(`[DB] Undo history cleared for project ${projectId}`);
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -758,5 +1167,25 @@ module.exports = {
     getCropById,
     getCropsGroupedByImage,
     updateCropLabel,
-    deleteCrop
+    deleteCrop,
+
+    // Project images operations
+    createProjectImage,
+    getProjectImages,
+    getProjectImageById,
+    updateImageStatus,
+    getNextPendingImage,
+    getImageStats,
+    deleteProjectImage,
+
+    // Project labels operations (predefined labels)
+    createProjectLabel,
+    getProjectLabels,
+    updateProjectLabel,
+    deleteProjectLabel,
+
+    // Undo history operations
+    addUndoEntry,
+    popUndoEntry,
+    clearUndoHistory
 };
