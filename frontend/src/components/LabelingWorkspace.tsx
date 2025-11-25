@@ -127,6 +127,17 @@ export default function LabelingWorkspace({
     }
   };
 
+  // Reload just images (for when new images are added)
+  const reloadImages = async () => {
+    try {
+      const imagesData = await getProjectImages(project.id);
+      setImages(imagesData.images);
+      setImageStats(imagesData.stats);
+    } catch (err) {
+      console.error('Error reloading images:', err);
+    }
+  };
+
   // Load image into SAM3 session when current image changes
   const selectImage = async (img: ProjectImage) => {
     setCurrentImage(img);
@@ -616,6 +627,7 @@ export default function LabelingWorkspace({
         stats={imageStats}
         currentImageId={currentImage?.id || null}
         onSelectImage={selectImage}
+        onImagesAdded={reloadImages}
       />
     </div>
   );

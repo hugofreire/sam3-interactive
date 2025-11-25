@@ -3,9 +3,19 @@
  * Bottom horizontal thumbnail strip for image queue navigation
  */
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Badge } from './ui/badge';
-import { getProjectImageUrl } from '../api/projects';
+import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Input } from './ui/input';
+import { Progress } from './ui/progress';
+import { Alert, AlertDescription } from './ui/alert';
+import { getProjectImageUrl, batchUploadImages } from '../api/projects';
 import type { ProjectImage, ImageStats } from '../types';
 
 interface ImageStripProps {
@@ -14,6 +24,7 @@ interface ImageStripProps {
   stats: ImageStats;
   currentImageId: string | null;
   onSelectImage: (image: ProjectImage) => void;
+  onImagesAdded?: () => void;
 }
 
 function getStatusColor(status: ProjectImage['status']): string {
@@ -46,9 +57,17 @@ export default function ImageStrip({
   stats,
   currentImageId,
   onSelectImage,
+  onImagesAdded,
 }: ImageStripProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const currentImageRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add More dialog state
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
 
   // Scroll to current image when it changes
   useEffect(() => {
@@ -60,6 +79,50 @@ export default function ImageStrip({
       });
     }
   }, [currentImageId]);
+
+  // Handle file selection and upload
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadError('');
+    setUploadSuccess('');
+    setUploadProgress(0);
+
+    try {
+      const result = await batchUploadImages(projectId, files, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      setUploadProgress(null);
+
+      if (result.failed > 0) {
+        setUploadError(`${result.uploaded} uploaded, ${result.failed} failed`);
+      } else {
+        setUploadSuccess(`${result.uploaded} images added to queue`);
+      }
+
+      // Notify parent to refresh images
+      onImagesAdded?.();
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Auto-close dialog after success
+      if (result.failed === 0) {
+        setTimeout(() => {
+          setShowAddDialog(false);
+          setUploadSuccess('');
+        }, 1500);
+      }
+    } catch (err) {
+      setUploadProgress(null);
+      setUploadError('Upload failed');
+      console.error('Error uploading images:', err);
+    }
+  };
 
   if (images.length === 0) {
     return (
@@ -143,7 +206,64 @@ export default function ImageStrip({
             );
           })()}
         </div>
+
+        {/* Add More button */}
+        <div className="flex-shrink-0 px-2 border-l">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowAddDialog(true)}
+            className="whitespace-nowrap"
+          >
+            + Add More
+          </Button>
+        </div>
       </div>
+
+      {/* Add More Images Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add More Images</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">
+                Select multiple images to add to the labeling queue
+              </p>
+            </div>
+
+            {uploadProgress !== null && (
+              <div className="space-y-1">
+                <Progress value={uploadProgress} />
+                <div className="text-sm text-muted-foreground text-center">
+                  Uploading... {uploadProgress}%
+                </div>
+              </div>
+            )}
+
+            {uploadError && (
+              <Alert variant="destructive" className="py-2">
+                <AlertDescription>{uploadError}</AlertDescription>
+              </Alert>
+            )}
+
+            {uploadSuccess && (
+              <Alert className="py-2 border-green-500 text-green-700">
+                <AlertDescription>{uploadSuccess}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
