@@ -545,19 +545,12 @@ export default function LabelingWorkspace({
           <div className="text-muted-foreground">Select an image to start labeling</div>
         ) : (
           <>
-            {/* Status messages */}
-            {(error || message) && (
+            {/* Error messages only - success feedback is via bbox visualization */}
+            {error && (
               <div className="mb-2">
-                {error && (
-                  <Alert variant="destructive" className="py-2">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {message && (
-                  <Alert className="py-2 bg-green-50 text-green-800 border-green-200">
-                    <AlertDescription>{message}</AlertDescription>
-                  </Alert>
-                )}
+                <Alert variant="destructive" className="py-2">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               </div>
             )}
 
