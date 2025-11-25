@@ -13,9 +13,16 @@ const { v4: uuidv4 } = require('uuid');
 const archiver = require('archiver');
 const training = require('../training');
 
-// Multer for inference image upload
+// Multer for inference image upload (preserve file extension for YOLO)
+const storage = multer.diskStorage({
+    destination: path.join(__dirname, '..', 'uploads'),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.jpg';
+        cb(null, `${uuidv4()}${ext}`);
+    }
+});
 const upload = multer({
-    dest: path.join(__dirname, '..', 'uploads'),
+    storage,
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
