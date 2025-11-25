@@ -45,6 +45,7 @@ export default function TrainingPanel({
   const [detections, setDetections] = useState<Detection[]>([]);
   const [inferenceConf, setInferenceConf] = useState(0.5);
   const [isInferring, setIsInferring] = useState(false);
+  const [inferenceRan, setInferenceRan] = useState(false); // Track if inference was run
 
   // Refs
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -208,6 +209,7 @@ export default function TrainingPanel({
       setInferenceImage(file);
       setInferencePreview(URL.createObjectURL(file));
       setDetections([]);
+      setInferenceRan(false); // Reset inference state for new image
     }
   };
 
@@ -216,6 +218,7 @@ export default function TrainingPanel({
 
     setIsInferring(true);
     setDetections([]);
+    setInferenceRan(false);
 
     const result = await runInference(
       projectId,
@@ -225,10 +228,11 @@ export default function TrainingPanel({
     );
 
     setIsInferring(false);
+    setInferenceRan(true);
 
     if (result.success && result.detections) {
       setDetections(result.detections);
-    } else {
+    } else if (!result.success) {
       alert(`Inference failed: ${result.error}`);
     }
   };
@@ -236,6 +240,41 @@ export default function TrainingPanel({
   const isRunning = status?.status === 'running';
   const isCompleted = status?.status === 'completed';
   const isFailed = status?.status === 'failed';
+
+  // Get score emoji and message based on mAP50 percentage
+  const getScoreInfo = (mAP50: number | undefined) => {
+    if (mAP50 === undefined) return { emoji: '❓', message: 'No score yet', color: '#666' };
+    const percent = mAP50 * 100;
+    if (percent < 25) {
+      return {
+        emoji: '😢',
+        message: 'Needs more training data',
+        color: '#e74c3c',
+        tip: 'Add more labeled samples to improve accuracy'
+      };
+    } else if (percent < 50) {
+      return {
+        emoji: '😐',
+        message: 'Getting there',
+        color: '#f39c12',
+        tip: 'More samples or epochs may help'
+      };
+    } else if (percent < 70) {
+      return {
+        emoji: '🙂',
+        message: 'Decent model',
+        color: '#3498db',
+        tip: 'Good for basic detection'
+      };
+    } else {
+      return {
+        emoji: '😄',
+        message: 'Great model!',
+        color: '#27ae60',
+        tip: 'Ready for production use'
+      };
+    }
+  };
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -561,7 +600,9 @@ export default function TrainingPanel({
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {models.map((model) => (
+                {models.map((model) => {
+                  const scoreInfo = getScoreInfo(model.metrics?.mAP50);
+                  return (
                   <div
                     key={model.runId}
                     style={{
@@ -582,11 +623,31 @@ export default function TrainingPanel({
                       </div>
                     </div>
 
+                    {/* Score indicator with emoji */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{ fontSize: '24px' }}>{scoreInfo.emoji}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 'bold', color: scoreInfo.color }}>
+                          {scoreInfo.message}
+                        </div>
+                        {model.metrics?.mAP50 !== undefined && (
+                          <div style={{ fontSize: '11px', color: '#666' }}>
+                            mAP50: {(model.metrics.mAP50 * 100).toFixed(1)}% • {scoreInfo.tip}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#666', marginBottom: '8px' }}>
                       <span>{model.sizeMB} MB</span>
-                      {model.metrics?.mAP50 && (
-                        <span>mAP50: {(model.metrics.mAP50 * 100).toFixed(1)}%</span>
-                      )}
                     </div>
 
                     {/* Download buttons */}
@@ -644,7 +705,8 @@ export default function TrainingPanel({
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -751,10 +813,11 @@ export default function TrainingPanel({
                     <div style={{
                       marginTop: '12px',
                       padding: '12px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '4px'
+                      backgroundColor: '#d4edda',
+                      borderRadius: '4px',
+                      border: '1px solid #c3e6cb'
                     }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#155724' }}>
                         Detected: {detections.length} objects
                       </div>
                       <div style={{ fontSize: '13px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -763,8 +826,9 @@ export default function TrainingPanel({
                             key={idx}
                             style={{
                               padding: '4px 8px',
-                              backgroundColor: '#e0e0e0',
-                              borderRadius: '4px'
+                              backgroundColor: '#fff',
+                              borderRadius: '4px',
+                              border: '1px solid #c3e6cb'
                             }}
                           >
                             {det.class_name}: {(det.confidence * 100).toFixed(0)}%
@@ -773,6 +837,47 @@ export default function TrainingPanel({
                       </div>
                     </div>
                   )}
+
+                  {/* No detections feedback */}
+                  {inferenceRan && detections.length === 0 && (() => {
+                    const selectedModelData = models.find(m => m.runId === selectedModel);
+                    const scoreInfo = getScoreInfo(selectedModelData?.metrics?.mAP50);
+                    return (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '16px',
+                        backgroundColor: '#fff3cd',
+                        borderRadius: '8px',
+                        border: '1px solid #ffc107',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>{scoreInfo.emoji}</div>
+                        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#856404' }}>
+                          No objects detected
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#856404', marginBottom: '8px' }}>
+                          {scoreInfo.message}
+                        </div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#666',
+                          backgroundColor: 'rgba(255,255,255,0.5)',
+                          padding: '8px',
+                          borderRadius: '4px'
+                        }}>
+                          {selectedModelData?.metrics?.mAP50 !== undefined ? (
+                            <>
+                              Model accuracy: {(selectedModelData.metrics.mAP50 * 100).toFixed(1)}% mAP50
+                              <br />
+                              <strong>Tip:</strong> {scoreInfo.tip}
+                            </>
+                          ) : (
+                            'Try lowering the confidence threshold or add more training data'
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
