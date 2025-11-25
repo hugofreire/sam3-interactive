@@ -21,6 +21,8 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 - ✅ Iterative refinement (add more points)
 - ✅ Real-time visualization
 - ✅ **YOLO export** - YOLOv8 detection format with normalized bboxes
+- ✅ **YOLOv8 Training** - Train detection models from labeled datasets
+- ✅ **Model Inference** - Run trained models on new images
 - ⏳ Text-based segmentation (planned)
 
 ---
@@ -34,6 +36,8 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 │   ├── server.js                     # Main Express server (port 3001)
 │   ├── sam3_service.py              # Python SAM3 wrapper service
 │   ├── export.js                    # YOLO export logic
+│   ├── training.js                  # YOLOv8 training job management
+│   ├── train_yolo.py               # Python YOLO training/inference script
 │   ├── database.js                  # SQLite DB manager
 │   ├── migrations/                  # DB schema migrations
 │   │   ├── 001_initial.sql
@@ -182,6 +186,68 @@ ALTER TABLE crops ADD COLUMN source_width INTEGER;
 ALTER TABLE crops ADD COLUMN source_height INTEGER;
 ALTER TABLE crops ADD COLUMN persisted_image_path TEXT;
 ```
+
+---
+
+## 🤖 YOLOv8 Training Feature
+
+**Model**: YOLOv8-nano (3.2M parameters) - optimized for edge deployment
+
+**Training Pipeline:**
+1. Exports project dataset to YOLO format (70/30 train/val split)
+2. Spawns Python subprocess with `train_yolo.py`
+3. Streams JSON progress logs via stdout
+4. Exports to PyTorch (.pt), ONNX, and NCNN formats
+
+**Key Files:**
+- `backend/training.js` - Job lifecycle management (start/stop/status/logs)
+- `backend/train_yolo.py` - Python training script with JSON logging
+- `backend/routes/training.js` - REST API endpoints
+- `frontend/src/components/TrainingPanel.tsx` - Training UI with model cards
+
+**Training API Endpoints:**
+```
+POST /api/projects/:projectId/training/start   - Start training
+GET  /api/projects/:projectId/training/status  - Get progress
+POST /api/projects/:projectId/training/stop    - Stop training
+GET  /api/projects/:projectId/training/logs    - Get training logs
+GET  /api/projects/:projectId/models           - List trained models
+POST /api/projects/:projectId/inference        - Run inference (upload image)
+POST /api/projects/:projectId/inference/url    - Run inference (image path)
+```
+
+**Training UI Features:**
+- Real-time progress bar with epoch/loss metrics
+- Model cards with emoji score indicators based on mAP50:
+  - 😢 <25% - "Needs more training data"
+  - 😐 25-50% - "Getting there"
+  - 🙂 50-70% - "Decent model"
+  - 😄 >70% - "Great model!"
+- Inference testing with confidence threshold slider
+- Model download in multiple formats (PT, ONNX, NCNN)
+
+**GPU Configuration:**
+- Uses GPU 1 by default (`CUDA_VISIBLE_DEVICES=1`)
+- Configurable via training config `device` parameter
+
+---
+
+## 🐛 Known Issues & Fixes
+
+### Radix UI Dialog Scroll Lock
+**Issue:** File inputs don't open file picker when dialogs are open
+**Cause:** Radix UI sets `pointer-events: none` on `<body>` with `data-scroll-locked` attribute
+**Fix:** Added CSS override in `frontend/src/index.css`:
+```css
+body[data-scroll-locked] {
+  pointer-events: auto !important;
+}
+```
+
+### Multer File Extensions
+**Issue:** YOLO inference fails with "No images or videos found"
+**Cause:** Multer was saving uploaded files without extensions
+**Fix:** Use `diskStorage` with filename preserving extension in `backend/routes/training.js`
 
 ---
 
