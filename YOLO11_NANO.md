@@ -1,6 +1,6 @@
-# YOLOv8-Nano Quick Reference
+# YOLO11-Nano Quick Reference
 
-> Reference documentation for YOLOv8-nano training and edge deployment.
+> Reference documentation for YOLO11-nano training and edge deployment.
 
 ---
 
@@ -8,13 +8,13 @@
 
 | Property | Value |
 |----------|-------|
-| Model | YOLOv8n (nano) |
-| Parameters | 3.2M |
-| Size | ~6 MB (FP32) |
-| Speed (GPU) | ~1ms/image |
+| Model | YOLO11n (nano) |
+| Parameters | ~2.6M |
+| Size | ~5 MB (FP32) |
+| Speed (GPU) | ~1.5ms/image |
 | Speed (RPi5 CPU) | ~6 FPS (TFLite INT8) |
 | Speed (RPi5 + Hailo) | ~137 FPS |
-| mAP50-95 (COCO) | 37.3 |
+| mAP50-95 (COCO) | 39.5 |
 
 ---
 
@@ -33,7 +33,7 @@ pip install ultralytics
 from ultralytics import YOLO
 
 # Load pretrained model
-model = YOLO("yolov8n.pt")
+model = YOLO("yolo11n.pt")
 
 # Train on custom dataset
 results = model.train(
@@ -50,7 +50,7 @@ results = model.train(
 
 ### CLI
 ```bash
-yolo detect train data=data.yaml model=yolov8n.pt epochs=100 batch=8 imgsz=640
+yolo detect train data=data.yaml model=yolo11n.pt epochs=100 batch=8 imgsz=640
 ```
 
 ---
@@ -217,7 +217,7 @@ python -c "from ultralytics import YOLO; YOLO('best.tflite').predict('test.jpg')
 
 ## Resources
 
-- [Ultralytics YOLOv8 Docs](https://docs.ultralytics.com/)
+- [Ultralytics YOLO Docs](https://docs.ultralytics.com/)
 - [Training Guide](https://docs.ultralytics.com/modes/train/)
 - [Export Guide](https://docs.ultralytics.com/modes/export/)
 - [Raspberry Pi Guide](https://docs.ultralytics.com/guides/raspberry-pi/)
@@ -225,4 +225,4 @@ python -c "from ultralytics import YOLO; YOLO('best.tflite').predict('test.jpg')
 
 ---
 
-*Generated for SAM3 Dataset Labeling Tool - YOLOv8 Training Feature*
+*Generated for SAM3 Dataset Labeling Tool - YOLO11 Training Feature*

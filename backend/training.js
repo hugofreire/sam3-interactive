@@ -1,5 +1,5 @@
 /**
- * YOLOv8 Training Job Management
+ * YOLO11 Training Job Management
  *
  * Handles training job lifecycle:
  * - Start training (spawn Python subprocess)

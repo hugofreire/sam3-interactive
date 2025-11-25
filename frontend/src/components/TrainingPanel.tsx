@@ -286,7 +286,7 @@ export default function TrainingPanel({
         marginBottom: '20px',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <h2 style={{ margin: '0 0 12px 0' }}>YOLOv8-Nano Training</h2>
+        <h2 style={{ margin: '0 0 12px 0' }}>YOLO11-Nano Training</h2>
         <div style={{ display: 'flex', gap: '24px', fontSize: '15px', color: '#666' }}>
           <div>Project: <strong style={{ color: '#333' }}>{projectName}</strong></div>
           <div><strong style={{ color: '#333' }}>{cropCount}</strong> crops</div>

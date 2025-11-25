@@ -1,7 +1,7 @@
 /**
  * Training API Routes
  *
- * Endpoints for YOLOv8 training management
+ * Endpoints for YOLO11 training management
  */
 
 const express = require('express');

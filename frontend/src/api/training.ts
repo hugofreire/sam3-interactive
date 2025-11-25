@@ -1,7 +1,7 @@
 /**
  * Training API Client
  *
- * Functions for interacting with the YOLOv8 training backend
+ * Functions for interacting with the YOLO11 training backend
  */
 
 import axios from 'axios';

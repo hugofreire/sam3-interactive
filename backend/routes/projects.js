@@ -277,7 +277,7 @@ router.post('/:id/export/zip', async (req, res) => {
 
         res.json({
             success: true,
-            format: 'yolov8',
+            format: 'yolo11',
             downloadUrl: `/api/downloads/${result.zipFilename}`,
             filename: result.zipFilename,
             stats: result.stats

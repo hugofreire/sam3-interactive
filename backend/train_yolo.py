@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-YOLOv8-Nano Training Script for SAM3 Dataset Labeling Tool
+YOLO11-Nano Training Script for SAM3 Dataset Labeling Tool
 
 Usage:
     python train_yolo.py --data /path/to/data.yaml --output /path/to/output --epochs 100
 
 This script:
-1. Trains YOLOv8-nano on the provided dataset
+1. Trains YOLO11-nano on the provided dataset
 2. Exports trained model to NCNN and ONNX formats
 3. Writes JSON progress updates to stdout for real-time monitoring
 """
@@ -97,7 +97,7 @@ def train(
     workers: int = 4
 ) -> dict:
     """
-    Train YOLOv8-nano model on custom dataset
+    Train YOLO11-nano model on custom dataset
 
     Args:
         data_yaml: Path to data.yaml configuration
@@ -118,7 +118,7 @@ def train(
         log_error("ultralytics not installed. Run: pip install ultralytics")
         sys.exit(1)
 
-    log_info(f"Starting YOLOv8-nano training")
+    log_info(f"Starting YOLO11-nano training")
     log_info(f"Dataset: {data_yaml}")
     log_info(f"Output: {output_dir}")
     log_info(f"Config: epochs={epochs}, batch={batch}, imgsz={imgsz}, device={device}")
@@ -131,9 +131,9 @@ def train(
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    # Load pretrained YOLOv8-nano
-    log_info("Loading YOLOv8-nano pretrained model...")
-    model = YOLO("yolov8n.pt")
+    # Load pretrained YOLO11-nano
+    log_info("Loading YOLO11-nano pretrained model...")
+    model = YOLO("yolo11n.pt")
 
     # Set up custom callback for progress tracking
     callback = TrainingCallback(epochs)
@@ -287,7 +287,7 @@ def run_inference(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="YOLOv8-Nano Training Script")
+    parser = argparse.ArgumentParser(description="YOLO11-Nano Training Script")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
     # Train command

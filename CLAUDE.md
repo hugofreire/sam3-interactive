@@ -20,8 +20,8 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 - ✅ Multiple candidate masks with confidence scores
 - ✅ Iterative refinement (add more points)
 - ✅ Real-time visualization
-- ✅ **YOLO export** - YOLOv8 detection format with normalized bboxes
-- ✅ **YOLOv8 Training** - Train detection models from labeled datasets
+- ✅ **YOLO export** - YOLO11 detection format with normalized bboxes
+- ✅ **YOLO11 Training** - Train detection models from labeled datasets
 - ✅ **Model Inference** - Run trained models on new images
 - ⏳ Text-based segmentation (planned)
 
@@ -36,7 +36,7 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 │   ├── server.js                     # Main Express server (port 3001)
 │   ├── sam3_service.py              # Python SAM3 wrapper service
 │   ├── export.js                    # YOLO export logic
-│   ├── training.js                  # YOLOv8 training job management
+│   ├── training.js                  # YOLO11 training job management
 │   ├── train_yolo.py               # Python YOLO training/inference script
 │   ├── database.js                  # SQLite DB manager
 │   ├── migrations/                  # DB schema migrations
@@ -157,7 +157,7 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 
 ## 📦 YOLO Export Feature
 
-**Format**: YOLOv8 detection format with normalized bounding boxes
+**Format**: YOLO11 detection format with normalized bounding boxes
 
 **Key Implementation:**
 - **Original images persisted**: Copies from `uploads/` → `datasets/{projectId}/images/` on first crop save
@@ -189,9 +189,9 @@ ALTER TABLE crops ADD COLUMN persisted_image_path TEXT;
 
 ---
 
-## 🤖 YOLOv8 Training Feature
+## 🤖 YOLO11 Training Feature
 
-**Model**: YOLOv8-nano (3.2M parameters) - optimized for edge deployment
+**Model**: YOLO11-nano (~2.6M parameters) - optimized for edge deployment
 
 **Training Pipeline:**
 1. Exports project dataset to YOLO format (70/30 train/val split)
@@ -1360,5 +1360,5 @@ nvidia-smi
 
 **Ready to continue development! 🚀**
 
-*Last updated: 2025-11-20*
+*Last updated: 2025-11-25*
 *Session: SAM3 Interactive Segmentation Web App Development*

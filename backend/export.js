@@ -241,7 +241,7 @@ function generateMetadataJSON(project, splits, classMap, splitRatios) {
         project_name: project.name,
         project_id: project.id,
         description: project.description || '',
-        format: 'yolov8',
+        format: 'yolo11',
         created_at: project.created_at,
         exported_at: new Date().toISOString(),
         total_images: countImages(splits.train) + countImages(splits.val) + countImages(splits.test),
@@ -340,7 +340,7 @@ async function createYOLOZIP(projectId, options = {}) {
                 zipPath: zipPath,
                 zipFilename: zipFilename,
                 stats: {
-                    format: 'yolov8',
+                    format: 'yolo11',
                     total_images: metadata.total_images,
                     total_boxes: metadata.total_boxes,
                     train_images: splits.train.size,

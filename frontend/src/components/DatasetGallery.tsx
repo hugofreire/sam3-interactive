@@ -139,7 +139,7 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
       // Show success message
       alert(
         `YOLO Export successful!\n\n` +
-        `Format: ${result.format || 'YOLOv8'}\n` +
+        `Format: ${result.format || 'YOLO11'}\n` +
         `Total: ${result.stats.total_images || result.stats.total} images, ${result.stats.total_boxes || 0} boxes\n` +
         `Train: ${result.stats.train_images || result.stats.train} images\n` +
         `Val: ${result.stats.val_images || result.stats.val} images\n` +
@@ -695,7 +695,7 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
                   lineHeight: '1.6',
                 }}
               >
-                <strong>Export Format:</strong> YOLOv8 detection format - full images with normalized bounding boxes (.txt labels) + data.yaml
+                <strong>Export Format:</strong> YOLO11 detection format - full images with normalized bounding boxes (.txt labels) + data.yaml
               </div>
             </div>
 
