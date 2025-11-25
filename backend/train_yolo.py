@@ -94,10 +94,11 @@ def train(
     batch: int = 8,
     imgsz: int = 640,
     device: int = 0,
-    workers: int = 4
+    workers: int = 4,
+    model: str = 'yolo11n'
 ) -> dict:
     """
-    Train YOLO11-nano model on custom dataset
+    Train YOLO11 model on custom dataset
 
     Args:
         data_yaml: Path to data.yaml configuration
@@ -107,6 +108,7 @@ def train(
         imgsz: Input image size
         device: GPU device index
         workers: Number of dataloader workers
+        model: Model variant (yolo11n, yolo11s, yolo11m)
 
     Returns:
         dict: Training results including paths to exported models
@@ -118,10 +120,10 @@ def train(
         log_error("ultralytics not installed. Run: pip install ultralytics")
         sys.exit(1)
 
-    log_info(f"Starting YOLO11-nano training")
+    log_info(f"Starting YOLO11 training with model: {model}")
     log_info(f"Dataset: {data_yaml}")
     log_info(f"Output: {output_dir}")
-    log_info(f"Config: epochs={epochs}, batch={batch}, imgsz={imgsz}, device={device}")
+    log_info(f"Config: epochs={epochs}, batch={batch}, imgsz={imgsz}, device={device}, model={model}")
 
     # Verify data.yaml exists
     if not os.path.exists(data_yaml):
@@ -131,20 +133,21 @@ def train(
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    # Load pretrained YOLO11-nano
-    log_info("Loading YOLO11-nano pretrained model...")
-    model = YOLO("yolo11n.pt")
+    # Load pretrained YOLO11 model
+    model_file = f"{model}.pt"
+    log_info(f"Loading {model} pretrained model...")
+    yolo_model = YOLO(model_file)
 
     # Set up custom callback for progress tracking
     callback = TrainingCallback(epochs)
-    model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
-    model.add_callback("on_val_end", callback.on_val_end)
+    yolo_model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
+    yolo_model.add_callback("on_val_end", callback.on_val_end)
 
     # Train the model
     log_info("Starting training...")
     start_time = time.time()
 
-    results = model.train(
+    results = yolo_model.train(
         data=data_yaml,
         epochs=epochs,
         batch=batch,
@@ -299,6 +302,7 @@ def main():
     train_parser.add_argument("--imgsz", type=int, default=640, help="Image size")
     train_parser.add_argument("--device", type=int, default=0, help="GPU device")
     train_parser.add_argument("--workers", type=int, default=4, help="Dataloader workers")
+    train_parser.add_argument("--model", type=str, default="yolo11n", help="Model variant (yolo11n, yolo11s, yolo11m)")
 
     # Inference command
     infer_parser = subparsers.add_parser("infer", help="Run inference")
@@ -317,7 +321,8 @@ def main():
             batch=args.batch,
             imgsz=args.imgsz,
             device=args.device,
-            workers=args.workers
+            workers=args.workers,
+            model=args.model
         )
     elif args.command == "infer":
         result = run_inference(

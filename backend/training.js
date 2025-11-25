@@ -52,7 +52,8 @@ async function startTraining(projectId, config = {}) {
         batch = 8,
         imgsz = 640,
         device = 1,  // Use GPU 1 (GPU 0 may be occupied by VLLM)
-        workers = 4
+        workers = 4,
+        model = 'yolo11n'  // nano, small (yolo11s), or medium (yolo11m)
     } = config;
 
     const jobId = uuidv4();
@@ -103,7 +104,7 @@ async function startTraining(projectId, config = {}) {
         projectId,
         runId,
         status: 'running',
-        config: { epochs, batch, imgsz, device, workers },
+        config: { epochs, batch, imgsz, device, workers, model },
         startTime: new Date().toISOString(),
         endTime: null,
         progress: 0,
@@ -130,7 +131,8 @@ async function startTraining(projectId, config = {}) {
         '--batch', batch.toString(),
         '--imgsz', imgsz.toString(),
         '--device', device.toString(),
-        '--workers', workers.toString()
+        '--workers', workers.toString(),
+        '--model', model
     ];
 
     log(`Spawning: python ${args.join(' ')}`);

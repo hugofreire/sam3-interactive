@@ -32,6 +32,7 @@ export default function TrainingPanel({
   const [epochs, setEpochs] = useState(100);
   const [batchSize, setBatchSize] = useState(8);
   const [imgSize, setImgSize] = useState(640);
+  const [modelSize, setModelSize] = useState<'yolo11n' | 'yolo11s' | 'yolo11m'>('yolo11n');
 
   // Training state
   const [status, setStatus] = useState<TrainingStatus | null>(null);
@@ -173,7 +174,8 @@ export default function TrainingPanel({
       batch: batchSize,
       imgsz: imgSize,
       device: 1,
-      workers: 4
+      workers: 4,
+      model: modelSize
     };
 
     const result = await startTraining(projectId, config);
@@ -286,7 +288,7 @@ export default function TrainingPanel({
         marginBottom: '20px',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        <h2 style={{ margin: '0 0 12px 0' }}>YOLO11-Nano Training</h2>
+        <h2 style={{ margin: '0 0 12px 0' }}>YOLO11 Training</h2>
         <div style={{ display: 'flex', gap: '24px', fontSize: '15px', color: '#666' }}>
           <div>Project: <strong style={{ color: '#333' }}>{projectName}</strong></div>
           <div><strong style={{ color: '#333' }}>{cropCount}</strong> crops</div>
@@ -369,6 +371,31 @@ export default function TrainingPanel({
                 <option value={320}>320 (fast, lower accuracy)</option>
                 <option value={416}>416 (balanced)</option>
                 <option value={640}>640 (recommended)</option>
+              </select>
+            </div>
+
+            {/* Model Size */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label style={{ fontSize: '14px', fontWeight: '500' }}>Model Size</label>
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  {modelSize === 'yolo11n' ? '~2.6M params' : modelSize === 'yolo11s' ? '~9.4M params' : '~20M params'}
+                </span>
+              </div>
+              <select
+                value={modelSize}
+                onChange={(e) => setModelSize(e.target.value as 'yolo11n' | 'yolo11s' | 'yolo11m')}
+                disabled={isRunning}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              >
+                <option value="yolo11n">Nano (fastest, edge devices)</option>
+                <option value="yolo11s">Small (balanced)</option>
+                <option value="yolo11m">Medium (best accuracy)</option>
               </select>
             </div>
 

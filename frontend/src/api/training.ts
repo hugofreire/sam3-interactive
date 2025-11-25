@@ -15,6 +15,7 @@ export interface TrainingConfig {
   imgsz?: number;
   device?: number;
   workers?: number;
+  model?: 'yolo11n' | 'yolo11s' | 'yolo11m';  // nano, small, medium
 }
 
 export interface TrainingStartResponse {
