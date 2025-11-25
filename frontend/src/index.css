@@ -9,6 +9,11 @@ body {
   min-height: 100vh;
 }
 
+/* Fix Radix UI scroll lock blocking all pointer events */
+body[data-scroll-locked] {
+  pointer-events: auto !important;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
