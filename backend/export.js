@@ -117,30 +117,31 @@ function splitImages(cropsGroupedByImage, splitRatios = { train: 0.7, val: 0.2, 
 }
 
 /**
- * Convert bbox from [x, y, w, h] pixels to YOLO format [cx, cy, w, h] normalized
+ * Convert bbox from Pascal VOC [x_min, y_min, x_max, y_max] to YOLO format [cx, cy, w, h] normalized
  * Clips bbox to image bounds and clamps output to [0, 1] range
  *
- * @param {Array} bbox - [x, y, width, height] in pixels
+ * @param {Array} bbox - [x_min, y_min, x_max, y_max] in pixels (Pascal VOC format)
  * @param {Number} imgWidth - Image width in pixels
  * @param {Number} imgHeight - Image height in pixels
  * @returns {Array} - [center_x, center_y, width, height] normalized 0-1, clamped
  */
 function bboxToYOLO(bbox, imgWidth, imgHeight) {
-    let [x, y, w, h] = bbox;
+    // bbox is in Pascal VOC format: [x_min, y_min, x_max, y_max]
+    let [x_min, y_min, x_max, y_max] = bbox;
 
-    // Clip bbox to image bounds (handle boxes extending beyond image)
-    const x1 = Math.max(0, x);
-    const y1 = Math.max(0, y);
-    const x2 = Math.min(imgWidth, x + w);
-    const y2 = Math.min(imgHeight, y + h);
+    // Clip bbox to image bounds
+    x_min = Math.max(0, x_min);
+    y_min = Math.max(0, y_min);
+    x_max = Math.min(imgWidth, x_max);
+    y_max = Math.min(imgHeight, y_max);
 
-    // Recalculate width/height after clipping
-    w = x2 - x1;
-    h = y2 - y1;
+    // Calculate width and height
+    const w = x_max - x_min;
+    const h = y_max - y_min;
 
-    // Calculate center point
-    const centerX = (x1 + w / 2) / imgWidth;
-    const centerY = (y1 + h / 2) / imgHeight;
+    // Calculate center point (already using clipped coordinates)
+    const centerX = (x_min + w / 2) / imgWidth;
+    const centerY = (y_min + h / 2) / imgHeight;
 
     // Normalize width and height
     const normWidth = w / imgWidth;

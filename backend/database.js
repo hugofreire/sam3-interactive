@@ -237,7 +237,7 @@ async function runMigrations(db) {
     }
 
     // Run migrations in order
-    const migrations = ['001_initial.sql', '002_yolo_support.sql', '003_image_management.sql'];
+    const migrations = ['001_initial.sql', '002_yolo_support.sql', '003_image_management.sql', '004_augmentation.sql'];
 
     for (const migrationFile of migrations) {
         const migrationVersion = migrationFile.split('_')[0];
@@ -248,12 +248,36 @@ async function runMigrations(db) {
             if (fs.existsSync(migrationPath)) {
                 const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
                 await dbExec(db, migrationSQL);
+
+                // Handle 004_augmentation specific column additions idempotently
+                if (migrationFile === '004_augmentation.sql') {
+                    await addColumnIfNotExists(db, 'crops', 'enhanced_image_id', 'TEXT');
+                    await addColumnIfNotExists(db, 'crops', 'is_synthetic', 'INTEGER DEFAULT 0');
+                }
+
                 console.log(`[DB] Applied migration: ${migrationFile}`);
             }
         }
     }
 
     console.log('[DB] Migrations completed');
+}
+
+/**
+ * Add column to table if it doesn't exist (idempotent)
+ */
+async function addColumnIfNotExists(db, table, column, type) {
+    try {
+        const columns = await dbAll(db, `PRAGMA table_info(${table})`, []);
+        const exists = columns.some(col => col.name === column);
+        if (!exists) {
+            await dbExec(db, `ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+            console.log(`[DB] Added column ${column} to ${table}`);
+        }
+    } catch (err) {
+        // Column might already exist, ignore
+        console.log(`[DB] Column ${column} check: ${err.message}`);
+    }
 }
 
 /**
@@ -682,15 +706,28 @@ async function deleteCrop(projectId, cropId) {
 /**
  * Get all crops grouped by source image (for YOLO export)
  * Returns: Map<persisted_image_path, Crop[]>
+ *
+ * @param {string} projectId - Project ID
+ * @param {Object} options - Optional filters
+ * @param {boolean} options.includeEnhanced - Include synthetic crops (default: true)
+ * @param {boolean} options.onlyOriginal - Only return original crops (default: false)
  */
-async function getCropsGroupedByImage(projectId) {
+async function getCropsGroupedByImage(projectId, options = {}) {
     const projectDB = getProjectDB(projectId);
 
-    const rows = await dbAll(
-        projectDB,
-        'SELECT * FROM crops WHERE persisted_image_path IS NOT NULL ORDER BY persisted_image_path, created_at',
-        []
-    );
+    const { includeEnhanced = true, onlyOriginal = false } = options;
+
+    let query = 'SELECT * FROM crops WHERE persisted_image_path IS NOT NULL';
+
+    if (onlyOriginal) {
+        query += ' AND (is_synthetic = 0 OR is_synthetic IS NULL)';
+    } else if (!includeEnhanced) {
+        query += ' AND (is_synthetic = 0 OR is_synthetic IS NULL)';
+    }
+
+    query += ' ORDER BY persisted_image_path, created_at';
+
+    const rows = await dbAll(projectDB, query, []);
 
     const grouped = new Map();
 

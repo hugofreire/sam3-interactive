@@ -83,6 +83,10 @@ export interface Crop {
   mask_area?: number;
   background_mode: BackgroundMode;
 
+  // Augmentation/synthetic data
+  is_synthetic?: number; // 1 if generated via augmentation
+  enhanced_image_id?: string; // Reference to enhanced_images table
+
   created_at: string;
 }
 

@@ -169,6 +169,7 @@ app.locals.sessionMetadata = sessionMetadata;
 const projectsRouter = require('./routes/projects');
 const cropsRouter = require('./routes/crops');
 const trainingRouter = require('./routes/training');
+const augmentationRouter = require('./routes/augmentation');
 
 // Mount routes
 app.use('/api/projects', projectsRouter);
@@ -185,6 +186,9 @@ app.use('/api/crops', cropsRouter);
 const trainingRouterWithProject = express.Router({ mergeParams: true });
 trainingRouterWithProject.use(trainingRouter);
 app.use('/api/projects/:projectId/training', trainingRouterWithProject);
+
+// Augmentation routes
+app.use('/api/projects', augmentationRouter);
 
 // ==================== SAM3 ENDPOINTS ====================
 

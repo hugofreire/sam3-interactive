@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCrops, getCropImageUrl, deleteCrop, updateCropLabel } from '../api/crops';
 import { exportProject } from '../api/projects';
+import AugmentationPanel from './AugmentationPanel';
 import type { Crop } from '../types';
 
 interface DatasetGalleryProps {
@@ -18,6 +19,7 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
   const [groupedCrops, setGroupedCrops] = useState<{ [label: string]: Crop[] }>({});
   const [expandedLabels, setExpandedLabels] = useState<Set<string>>(new Set());
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showAugmentationPanel, setShowAugmentationPanel] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [trainSplit, setTrainSplit] = useState(70);
   const [valSplit, setValSplit] = useState(20);
@@ -158,6 +160,8 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
 
   const totalCrops = crops.length;
   const totalLabels = Object.keys(groupedCrops).length;
+  const syntheticCrops = crops.filter((c) => c.is_synthetic === 1).length;
+  const originalCrops = totalCrops - syntheticCrops;
 
   if (loading) {
     return (
@@ -223,28 +227,50 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
             <div style={{ display: 'flex', gap: '24px', fontSize: '15px', color: '#666' }}>
               <div>
                 <strong style={{ color: '#333' }}>{totalCrops}</strong> crops
+                {syntheticCrops > 0 && (
+                  <span style={{ fontSize: '13px', marginLeft: '4px' }}>
+                    ({originalCrops} original + <span style={{ color: '#9b59b6' }}>{syntheticCrops} synthetic</span>)
+                  </span>
+                )}
               </div>
               <div>
                 <strong style={{ color: '#333' }}>{totalLabels}</strong> labels
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowExportDialog(true)}
-            disabled={crops.length === 0}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: crops.length === 0 ? '#ccc' : '#27ae60',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '15px',
-              cursor: crops.length === 0 ? 'not-allowed' : 'pointer',
-              fontWeight: 'bold',
-            }}
-          >
-            Export Dataset
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => setShowAugmentationPanel(true)}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#9b59b6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '15px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              Enhance Dataset
+            </button>
+            <button
+              onClick={() => setShowExportDialog(true)}
+              disabled={crops.length === 0}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: crops.length === 0 ? '#ccc' : '#27ae60',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '15px',
+                cursor: crops.length === 0 ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              Export Dataset
+            </button>
+          </div>
         </div>
       </div>
 
@@ -335,8 +361,27 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
                         alignItems: 'center',
                         justifyContent: 'center',
                         overflow: 'hidden',
+                        position: 'relative',
                       }}
                     >
+                      {crop.is_synthetic === 1 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '8px',
+                            right: '8px',
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            zIndex: 10,
+                          }}
+                        >
+                          Synthetic
+                        </div>
+                      )}
                       <img
                         src={getCropImageUrl(crop.id, projectId)}
                         alt={crop.label}
@@ -744,6 +789,17 @@ export default function DatasetGallery({ projectId, projectName }: DatasetGaller
             </div>
           </div>
         </div>
+      )}
+
+      {/* Augmentation Panel */}
+      {showAugmentationPanel && (
+        <AugmentationPanel
+          projectId={projectId}
+          onClose={() => setShowAugmentationPanel(false)}
+          onGenerated={() => {
+            loadCrops();
+          }}
+        />
       )}
     </div>
   );

@@ -187,6 +187,39 @@ ALTER TABLE crops ADD COLUMN source_height INTEGER;
 ALTER TABLE crops ADD COLUMN persisted_image_path TEXT;
 ```
 
+### ⚠️ CRITICAL: Bounding Box Format Convention
+
+**IMPORTANT**: Throughout the entire codebase, bboxes are stored in **Pascal VOC format**: `[x_min, y_min, x_max, y_max]`
+
+**Where this matters:**
+- ✅ **Database**: All crops.bbox stored as JSON: `[x_min, y_min, x_max, y_max]`
+- ✅ **SAM3 segmentation output**: Returns Pascal VOC format
+- ✅ **Augmentation (augment.py)**: Input and output both Pascal VOC
+- ✅ **YOLO export (export.js)**: Converts from Pascal VOC → YOLO format `[cx, cy, w, h]`
+
+**Common Mistake**: The database schema comment says `bbox TEXT NOT NULL, -- JSON: [x, y, width, height]` but this is **WRONG**. The actual format is `[x_min, y_min, x_max, y_max]`.
+
+**How to convert:**
+```javascript
+// Pascal VOC → YOLO (normalized 0-1)
+const [x_min, y_min, x_max, y_max] = bbox;
+const w = x_max - x_min;
+const h = y_max - y_min;
+const centerX = (x_min + w / 2) / imgWidth;
+const centerY = (y_min + h / 2) / imgHeight;
+const normWidth = w / imgWidth;
+const normHeight = h / imgHeight;
+// YOLO format: [centerX, centerY, normWidth, normHeight]
+```
+
+**Bug History (2025-11-26):**
+- Original bug: `export.js` treated bbox as `[x, y, w, h]` causing huge YOLO boxes (40-50% of image)
+- Also bug: `augment.py` converted to `[x, y, w, h]` before saving, creating format mismatch
+- **Fix**: Both now correctly use Pascal VOC format throughout
+- **Verification**: Coffee bean bboxes now correctly ~10-15% of image (not 40-50%)
+
+**When in doubt**: Check actual crop image size vs bbox values to verify format!
+
 ---
 
 ## 🤖 YOLO11 Training Feature

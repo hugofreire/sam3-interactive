@@ -159,6 +159,10 @@ def train(
         exist_ok=True,
         verbose=False,  # Reduce console spam
         patience=50,    # Early stopping
+        # Advanced augmentations for better spatial variation
+        mosaic=1.0,     # Mosaic augmentation (combines 4 images)
+        mixup=0.1,      # Mixup augmentation (blends 2 images)
+        copy_paste=0.3, # Copy-paste augmentation (duplicates objects)
     )
 
     training_time = time.time() - start_time
