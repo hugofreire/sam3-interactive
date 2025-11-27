@@ -7,8 +7,11 @@ const fs = require('fs').promises;
 const { spawn } = require('child_process');
 const db = require('./database');
 
+// Load environment variables from config/.env
+require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
+
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Define paths relative to backend directory
 const BACKEND_DIR = __dirname;
@@ -62,7 +65,7 @@ function startSAM3Process() {
 
     const sam3ServicePath = path.join(BACKEND_DIR, 'sam3_service.py');
     sam3Process = spawn('python3', ['-u', sam3ServicePath], {
-        env: { ...process.env, CUDA_VISIBLE_DEVICES: '1' }
+        env: { ...process.env, CUDA_VISIBLE_DEVICES: process.env.CUDA_VISIBLE_DEVICES || '1' }
     });
 
     let responseBuffer = '';

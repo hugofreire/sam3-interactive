@@ -46,9 +46,7 @@ class SAM3Service:
     def _load_model(self):
         """Load SAM3 model with interactive support"""
         try:
-            # Use GPU 1 (GPU 0 is occupied by VLLM)
-            os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
+            # CUDA_VISIBLE_DEVICES is set by server.js via config/.env
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             self.log(f"Using device: {self.device}")
 

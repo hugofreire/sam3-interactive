@@ -51,8 +51,8 @@ async function startTraining(projectId, config = {}) {
         epochs = 100,
         batch = 8,
         imgsz = 640,
-        device = 1,  // Use GPU 1 (GPU 0 may be occupied by VLLM)
-        workers = 4,
+        device = process.env.TRAINING_DEVICE || '1',  // Use GPU 1, or 'cpu' for Pi
+        workers = parseInt(process.env.TRAINING_WORKERS || '4', 10),
         model = 'yolo11n'  // nano, small (yolo11s), or medium (yolo11m)
     } = config;
 

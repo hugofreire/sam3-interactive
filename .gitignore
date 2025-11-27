@@ -166,3 +166,13 @@ backend/uploads/*.jpeg
 # Database files (generated at runtime)
 backend/datasets/
 !backend/datasets/.gitkeep
+
+# YOLO export files
+backend/exports/
+!backend/exports/.gitkeep
+
+# Config files (keep example, ignore actual configs)
+config/.env
+config/.env.server
+config/.env.pi
+!config/.env.example
