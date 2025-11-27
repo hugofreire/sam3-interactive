@@ -95,7 +95,7 @@ def run_hailo_inference(
 ) -> dict:
     """Run inference using Hailo-8L accelerator."""
     try:
-        from hailo_platform import HEF, VDevice, ConfigureParams, InferVStreams, InputVStreamParams, OutputVStreamParams
+        from hailo_platform import HEF, VDevice, ConfigureParams, InferVStreams, InputVStreamParams, OutputVStreamParams, HailoStreamInterface
         import numpy as np
         from PIL import Image
     except ImportError as e:
@@ -111,7 +111,8 @@ def run_hailo_inference(
     output_vstream_infos = hef.get_output_vstream_infos()
 
     input_shape = input_vstream_info.shape
-    input_height, input_width = input_shape[1], input_shape[2]
+    # Shape is (H, W, C) not (batch, H, W, C)
+    input_height, input_width = input_shape[0], input_shape[1]
 
     # Load and preprocess image
     img = Image.open(image_path).convert("RGB")
@@ -122,40 +123,45 @@ def run_hailo_inference(
 
     # Run inference
     with VDevice() as target:
-        configure_params = ConfigureParams.create_from_hef(hef, interface=target)
+        configure_params = ConfigureParams.create_from_hef(hef, interface=HailoStreamInterface.PCIe)
         network_group = target.configure(hef, configure_params)[0]
 
         input_params = InputVStreamParams.make_from_network_group(network_group)
         output_params = OutputVStreamParams.make_from_network_group(network_group)
 
         with InferVStreams(network_group, input_params, output_params) as infer_pipeline:
-            input_dict = {input_vstream_info.name: input_data}
-            start_time = time.perf_counter()
-            output_dict = infer_pipeline.infer(input_dict)
-            inference_time = (time.perf_counter() - start_time) * 1000
+            with network_group.activate():
+                input_dict = {input_vstream_info.name: input_data}
+                start_time = time.perf_counter()
+                output_dict = infer_pipeline.infer(input_dict)
+                inference_time = (time.perf_counter() - start_time) * 1000
 
-    # Post-process outputs (YOLO format)
+    # Post-process outputs (Hailo YOLO NMS format)
+    # Output: output[batch][class_id][det_idx] = [x1, y1, x2, y2, conf] (normalized 0-1)
     detections = []
-    for output_name, output_data in output_dict.items():
-        # Parse YOLO output format
-        # This is model-specific and may need adjustment
-        output_data = output_data[0]  # Remove batch dimension
+    class_names = ["green", "roasted"]
 
-        # Assuming standard YOLO output format
-        # [num_detections, 6] where 6 = [x1, y1, x2, y2, conf, class_id]
-        if len(output_data.shape) == 2 and output_data.shape[1] >= 6:
-            for det in output_data:
+    for output_name, output_data in output_dict.items():
+        batch_output = output_data[0]  # Remove batch dimension - list of classes
+
+        for class_id, class_detections in enumerate(batch_output):
+            class_arr = np.array(class_detections)
+            if class_arr.size == 0:
+                continue
+
+            # Each detection: [x1, y1, x2, y2, conf] (normalized 0-1)
+            for det in class_arr:
                 if det[4] >= conf:
-                    # Scale bbox to original image size
-                    x1 = int(det[0] * original_width / input_width)
-                    y1 = int(det[1] * original_height / input_height)
-                    x2 = int(det[2] * original_width / input_width)
-                    y2 = int(det[3] * original_height / input_height)
+                    # Scale bbox from normalized to original image size
+                    x1 = int(det[0] * original_width)
+                    y1 = int(det[1] * original_height)
+                    x2 = int(det[2] * original_width)
+                    y2 = int(det[3] * original_height)
 
                     detections.append({
-                        "class_id": int(det[5]),
-                        "class": ["green", "roasted"][int(det[5])] if int(det[5]) < 2 else f"class_{int(det[5])}",
-                        "confidence": float(det[4]),
+                        "class_id": class_id,
+                        "class": class_names[class_id] if class_id < len(class_names) else f"class_{class_id}",
+                        "confidence": round(float(det[4]), 3),
                         "bbox": [x1, y1, x2, y2],
                     })
 
