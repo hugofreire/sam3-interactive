@@ -27,7 +27,7 @@ A YOLO11-nano object detection model trained to identify green and roasted coffe
 | PyTorch | `best.pt` | 5.3MB | Training, GPU inference |
 | ONNX | `best.onnx` | 11MB | Cross-platform, TensorRT |
 | NCNN | `best_ncnn_model/` | 11MB | Raspberry Pi, ARM devices |
-| Hailo HEF | `model.hef` | ~5MB | Hailo-8L AI accelerator |
+| Hailo HEF | `model.hef` | 11.6MB | Hailo-8L AI accelerator (4-context) |
 
 ## Quick Start
 
