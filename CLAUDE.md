@@ -74,13 +74,17 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 │   │   └── ...
 │   └── ...
 │
-├── examples/                         # Official SAM3 examples
-│   └── *.ipynb
+├── examples/                         # SAM3 examples
+│   ├── basic_example.py             # CLI segmentation example
+│   └── *.ipynb                      # Jupyter notebooks
 │
 ├── scripts/                          # Utility scripts
+│   ├── verify_setup.py              # Setup verification script
+│   ├── hailo_check.sh               # RPi5 Hailo sanity check
+│   ├── rpi5_inference.py            # Multi-backend inference
+│   ├── hailo_camera.py              # Live Hailo camera inference
+│   └── ...
 │
-├── basic_example.py                  # CLI segmentation example
-├── verify_setup.py                   # Setup verification script
 ├── test_image.jpg                    # Sample test image
 │
 ├── WEB_APP_PLAN.md                  # Implementation plan
@@ -125,6 +129,24 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 │ (848M params)   │
 └─────────────────┘
 ```
+
+## Session Notes (recent)
+
+### 2025-12-19: CUDA/Torch Fix & Full Pipeline Verification
+- **CUDA/Torch mismatch resolved**: Reinstalled `torch==2.5.1+cu121` to match system CUDA 12.1 toolkit (was compiled against CUDA 12.4 causing `undefined symbol: __nvJitLinkComplete_12_4` errors)
+- **Full pipeline tested with Chrome DevTools MCP**: End-to-end verification of upload → SAM3 segmentation → crop labeling → save workflow
+- **Test results**:
+  - Image upload: `test_image.jpg` (1800x1200) loaded successfully
+  - SAM3 segmentation: 3 masks generated with scores [10.4%, 94.5%, 28.5%]
+  - Crop creation: Saved "truck" label with transparent background (1652x840 crop)
+  - Database: Crop persisted with undo support
+- **GPU status**: Dual RTX 3090 (24GB each), SAM3 running on GPU 1 via `CUDA_VISIBLE_DEVICES=1`
+- **Servers**: Backend on `http://127.0.0.1:4010`, Frontend on `http://localhost:5173`
+
+### Previous Sessions
+- Env-driven config across backend/frontend: backend now respects HOST/PORT/DATA_ROOT/UPLOADS_DIR/EXPORTS_DIR/SAM3_PYTHON/SAM3_CUDA_VISIBLE_DEVICES via dotenv; frontend Vite proxy/API targets and port are configurable. Added templates at config/.env.example and frontend/.env.example plus concrete configs (HOST=127.0.0.1, PORT=4010) for local testing.
+- ENV_SETUP.md added with Pi vs server profiles and key env knobs. Backend device controls updated (SAM3 service honors SAM3_DEVICE/CUDA envs; training/export/augmentation use DATA_ROOT/UPLOADS_DIR/EXPORTS_DIR envs). Frontend TypeScript build fixed (API clients, Labeling UI, Training panel typings) and build now passes.
+- Added scripts/debug_port_bind.sh for root-friendly port diagnostics.
 
 ### Key Design Decisions
 

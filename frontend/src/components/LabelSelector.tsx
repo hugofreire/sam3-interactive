@@ -16,7 +16,7 @@ interface LabelSelectorProps {
 }
 
 // Generate a consistent color for a label based on its name
-function getLabelColor(name: string, index: number): string {
+function getLabelColor(index: number): string {
   const colors = [
     'bg-red-500',
     'bg-blue-500',
@@ -76,7 +76,7 @@ export default function LabelSelector({
       {labels.map((label, index) => {
         const isSelected = selectedLabel?.id === label.id;
         const shortcut = index < 9 ? `${index + 1}` : null;
-        const colorClass = label.color || getLabelColor(label.name, index);
+        const colorClass = label.color || getLabelColor(index);
 
         return (
           <Button

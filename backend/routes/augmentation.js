@@ -11,6 +11,9 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
+const DATA_ROOT = process.env.DATA_ROOT
+    ? path.resolve(process.env.DATA_ROOT)
+    : path.join(__dirname, '..', 'datasets');
 
 function log(message) {
     console.log(`[${new Date().toISOString()}] [Augmentation] ${message}`);
@@ -120,7 +123,7 @@ router.post('/:projectId/augmentation/preview', async (req, res) => {
         });
     }
 
-    const fullImagePath = path.join(__dirname, '..', 'datasets', projectId, imagePath);
+    const fullImagePath = path.join(DATA_ROOT, projectId, imagePath);
 
     if (!fs.existsSync(fullImagePath)) {
         return res.status(404).json({
@@ -171,7 +174,7 @@ router.post('/:projectId/augmentation/generate', async (req, res) => {
             });
         }
 
-        const projectDir = path.join(__dirname, '..', 'datasets', projectId);
+        const projectDir = path.join(DATA_ROOT, projectId);
         const augmentedDir = path.join(projectDir, 'augmented');
         fs.mkdirSync(augmentedDir, { recursive: true });
 
@@ -293,7 +296,7 @@ router.delete('/:projectId/augmentation/clear', async (req, res) => {
         await db.dbRun(projectDB, `DELETE FROM enhanced_images`, []);
 
         // Delete augmented files
-        const augmentedDir = path.join(__dirname, '..', 'datasets', projectId, 'augmented');
+        const augmentedDir = path.join(DATA_ROOT, projectId, 'augmented');
         if (fs.existsSync(augmentedDir)) {
             fs.rmSync(augmentedDir, { recursive: true });
         }

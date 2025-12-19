@@ -12,10 +12,13 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const archiver = require('archiver');
 const training = require('../training');
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : path.join(__dirname, '..', 'uploads');
 
 // Multer for inference image upload (preserve file extension for YOLO)
 const storage = multer.diskStorage({
-    destination: path.join(__dirname, '..', 'uploads'),
+    destination: UPLOADS_DIR,
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname) || '.jpg';
         cb(null, `${uuidv4()}${ext}`);

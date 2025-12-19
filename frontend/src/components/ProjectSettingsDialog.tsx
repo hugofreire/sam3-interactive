@@ -3,7 +3,7 @@
  * Settings dialog with tabs for General, Labels, and Images
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,

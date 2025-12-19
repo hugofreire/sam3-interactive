@@ -7,9 +7,10 @@ import type {
 } from '../types';
 
 // Use environment variable or default to proxy
-// For VPN access, set VITE_API_URL=http://10.9.0.14:3001
-const API_BASE_URL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
+// For VPN access, set VITE_API_URL=http://10.9.0.14:3001 (without trailing /api)
+const apiRoot = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = apiRoot
+  ? (apiRoot.endsWith('/api') ? apiRoot : `${apiRoot}/api`)
   : '/api';
 
 // Create axios instance

@@ -54,7 +54,7 @@ export default function TrainingPanel({
   const imageRef = useRef<HTMLImageElement | null>(null);
 
   // Polling interval
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load initial status and models
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function TrainingPanel({
     // Draw bounding boxes
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
 
-    detections.forEach((det, idx) => {
+    detections.forEach((det) => {
       const [x1, y1, x2, y2] = det.bbox;
       const color = colors[det.class_id % colors.length];
 

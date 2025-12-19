@@ -6,13 +6,14 @@ SAM3 (Segment Anything Model 3) is Meta's foundation model for promptable segmen
 
 ## Setup Status
 
-✓ **Environment**: Python 3.10.14
-✓ **GPU**: NVIDIA GeForce RTX 3090 (CUDA 12.6)
-✓ **PyTorch**: 2.7.1+cu126
+✓ **Environment**: Python 3.10+
+✓ **GPU**: NVIDIA GeForce RTX 3090 (CUDA 12.1)
+✓ **PyTorch**: 2.5.1+cu121 (match your CUDA version!)
 ✓ **SAM3**: v0.1.0 installed
-✓ **Hugging Face**: Authenticated as Hugofreire
+✓ **Hugging Face**: Authenticated
 
-⚠️ **Pending**: Request access to SAM3 model checkpoints
+> **Important**: Ensure your PyTorch CUDA version matches your system CUDA toolkit.
+> Install with: `pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121`
 
 ## Getting Model Access
 
@@ -23,36 +24,37 @@ Before running SAM3, you need to request access:
 3. Wait for approval (usually within minutes to hours)
 4. Once approved, run the verification script to confirm:
    ```bash
-   python verify_setup.py
+   python scripts/verify_setup.py
    ```
 
 ## Project Structure
 
 ```
 sam3/
-├── basic_example.py       # Simple image segmentation script
-├── verify_setup.py        # Verify installation and model access
+├── examples/
+│   └── basic_example.py   # Simple image segmentation script
+├── scripts/
+│   └── verify_setup.py    # Verify installation and model access
 ├── test_image.jpg         # Sample image (truck)
 ├── sam3/                  # SAM3 source code
-├── examples/              # Official example notebooks
-└── scripts/               # Utility scripts
+└── docs/                  # Documentation
 ```
 
 ## Usage Examples
 
 ### 1. Verify Setup
 ```bash
-python verify_setup.py
+python scripts/verify_setup.py
 ```
 
 ### 2. Basic Image Segmentation
 ```bash
 # Segment a truck in the test image
-python basic_example.py test_image.jpg "truck"
+python examples/basic_example.py test_image.jpg "truck"
 
 # Segment other objects
-python basic_example.py test_image.jpg "wheel"
-python basic_example.py your_image.jpg "person"
+python examples/basic_example.py test_image.jpg "wheel"
+python examples/basic_example.py your_image.jpg "person"
 ```
 
 ### 3. Python API Usage
@@ -107,7 +109,7 @@ Comprehensive setup verification:
 
 1. **Test the basic example:**
    ```bash
-   python basic_example.py test_image.jpg "truck"
+   python examples/basic_example.py test_image.jpg "truck"
    ```
 
 2. **Try different prompts:**
@@ -135,13 +137,29 @@ Comprehensive setup verification:
 
 ## System Requirements
 
-- **Python**: 3.8+ (recommended: 3.12+)
-- **PyTorch**: 2.7.0+
-- **CUDA**: 12.6+ (for GPU acceleration)
-- **GPU**: NVIDIA GPU with 8GB+ VRAM recommended
+- **Python**: 3.10+ (tested with 3.10.14)
+- **PyTorch**: 2.5.1+ (must match CUDA version - e.g., `torch==2.5.1+cu121` for CUDA 12.1)
+- **CUDA**: 12.1+ (check with `nvcc --version`)
+- **GPU**: NVIDIA GPU with 8GB+ VRAM (RTX 3090 recommended)
 - **RAM**: 16GB+ recommended
+- **Node.js**: 18+ (for web UI)
 
 ## Troubleshooting
+
+### CUDA/PyTorch Version Mismatch
+```
+ImportError: undefined symbol: __nvJitLinkComplete_12_4
+```
+**Cause**: PyTorch was compiled against a different CUDA version than installed.
+**Solution**: Reinstall PyTorch matching your CUDA version:
+```bash
+# Check your CUDA version
+nvcc --version  # e.g., "release 12.1"
+
+# Install matching PyTorch
+pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 \
+    --index-url https://download.pytorch.org/whl/cu121
+```
 
 ### Model Access Error (403)
 ```
@@ -167,7 +185,7 @@ huggingface-cli login
 ### Dependency Conflicts
 **Solution**: Run verification to check:
 ```bash
-python verify_setup.py
+python scripts/verify_setup.py
 ```
 
 ## Useful Links

@@ -183,6 +183,7 @@ export interface ExportResponse {
   success: boolean;
   downloadUrl: string;
   filename: string;
+  format?: string;
   stats: {
     total: number;
     train: number;
@@ -190,6 +191,13 @@ export interface ExportResponse {
     test: number;
     classes: string[];
     size_bytes: number;
+    total_images?: number;
+    total_boxes?: number;
+    train_images?: number;
+    val_images?: number;
+    test_images?: number;
+    num_classes?: number;
+    format?: string;
   };
 }
 

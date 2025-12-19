@@ -16,12 +16,11 @@ import { Input } from './ui/input';
 import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
 import { getProjectImageUrl, batchUploadImages } from '../api/projects';
-import type { ProjectImage, ImageStats } from '../types';
+import type { ProjectImage } from '../types';
 
 interface ImageStripProps {
   projectId: string;
   images: ProjectImage[];
-  stats: ImageStats;
   currentImageId: string | null;
   onSelectImage: (image: ProjectImage) => void;
   onImagesAdded?: () => void;
@@ -54,7 +53,6 @@ function getStatusBadgeVariant(status: ProjectImage['status']): 'default' | 'sec
 export default function ImageStrip({
   projectId,
   images,
-  stats,
   currentImageId,
   onSelectImage,
   onImagesAdded,

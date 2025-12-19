@@ -6,17 +6,38 @@ const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
 const db = require('./database');
+const dotenv = require('dotenv');
 
-// Load environment variables from config/.env
-require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
+// Load environment variables from common locations
+dotenv.config({ path: path.join(__dirname, '../config/.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config(); // fallback to CWD
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Define paths relative to backend directory
 const BACKEND_DIR = __dirname;
-const UPLOADS_DIR = path.join(BACKEND_DIR, 'uploads');
-const EXPORTS_DIR = path.join(BACKEND_DIR, 'exports');
+const DATA_ROOT = process.env.DATA_ROOT
+    ? path.resolve(process.env.DATA_ROOT)
+    : path.join(BACKEND_DIR, 'datasets');
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : path.join(BACKEND_DIR, 'uploads');
+const EXPORTS_DIR = process.env.EXPORTS_DIR
+    ? path.resolve(process.env.EXPORTS_DIR)
+    : path.join(BACKEND_DIR, 'exports');
+const SAM3_PYTHON = process.env.SAM3_PYTHON || 'python3';
+const SAM3_CUDA_VISIBLE_DEVICES = process.env.SAM3_CUDA_VISIBLE_DEVICES;
+
+async function ensureDir(dirPath) {
+    try {
+        await fs.access(dirPath);
+    } catch {
+        await fs.mkdir(dirPath, { recursive: true });
+    }
+}
 
 // Middleware
 app.use(cors());
@@ -64,8 +85,15 @@ function startSAM3Process() {
     log('Starting SAM3 service...');
 
     const sam3ServicePath = path.join(BACKEND_DIR, 'sam3_service.py');
-    sam3Process = spawn('python3', ['-u', sam3ServicePath], {
-        env: { ...process.env, CUDA_VISIBLE_DEVICES: process.env.CUDA_VISIBLE_DEVICES || '1' }
+    const sam3Env = { ...process.env };
+    if (SAM3_CUDA_VISIBLE_DEVICES !== undefined) {
+        sam3Env.CUDA_VISIBLE_DEVICES = SAM3_CUDA_VISIBLE_DEVICES;
+    } else if (!process.env.CUDA_VISIBLE_DEVICES) {
+        sam3Env.CUDA_VISIBLE_DEVICES = '1'; // default GPU pinning if unset
+    }
+
+    sam3Process = spawn(SAM3_PYTHON, ['-u', sam3ServicePath], {
+        env: sam3Env
     });
 
     let responseBuffer = '';
@@ -352,14 +380,10 @@ async function initializeDatabase() {
         await db.initMainDatabase();
         log('✅ Database initialized successfully');
 
-        // Create exports directory if it doesn't exist
-        const exportsDir = path.join(__dirname, 'exports');
-        try {
-            await fs.access(exportsDir);
-        } catch {
-            await fs.mkdir(exportsDir, { recursive: true });
-            log('✅ Exports directory created');
-        }
+        // Ensure upload/export directories exist
+        await ensureDir(UPLOADS_DIR);
+        await ensureDir(EXPORTS_DIR);
+        log('✅ Data directories ready');
     } catch (error) {
         console.error('❌ Failed to initialize database:', error);
         process.exit(1);
@@ -387,10 +411,10 @@ process.on('SIGINT', async () => {
 
     // Clean up old upload files
     try {
-        const files = await fs.readdir('uploads');
+        const files = await fs.readdir(UPLOADS_DIR);
         for (const file of files) {
             if (file !== '.gitkeep') {
-                await fs.unlink(path.join('uploads', file));
+                await fs.unlink(path.join(UPLOADS_DIR, file));
             }
         }
         log('Cleaned up upload directory');
@@ -407,8 +431,8 @@ async function startServer() {
     await initializeDatabase();
 
     // Start Express server
-    app.listen(PORT, () => {
-        log(`🚀 SAM3 Backend running on http://localhost:${PORT}`);
+    app.listen(PORT, HOST, () => {
+        log(`🚀 SAM3 Backend running on http://${HOST}:${PORT}`);
         log(`Waiting for SAM3 service to be ready...`);
     });
 }

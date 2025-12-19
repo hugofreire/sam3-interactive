@@ -640,15 +640,22 @@ export default function LabelingWorkspace({
               <kbd className="px-1 bg-muted rounded">1-9</kbd> select label
               {isSegmenting && <span className="ml-2">Segmenting...</span>}
             </div>
+            {message && (
+              <div className="mt-2 text-center text-sm text-green-600">
+                {message}
+              </div>
+            )}
           </>
         )}
       </div>
 
       {/* Bottom: Image strip */}
+      <div className="text-xs text-muted-foreground text-center mb-2">
+        Queue: {imageStats.completed}/{imageStats.total} completed · In progress: {imageStats.in_progress} · Pending: {imageStats.pending}
+      </div>
       <ImageStrip
         projectId={project.id}
         images={images}
-        stats={imageStats}
         currentImageId={currentImage?.id || null}
         onSelectImage={selectImage}
         onImagesAdded={reloadImages}

@@ -46,8 +46,21 @@ class SAM3Service:
     def _load_model(self):
         """Load SAM3 model with interactive support"""
         try:
-            # CUDA_VISIBLE_DEVICES is set by server.js via config/.env
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            # CUDA_VISIBLE_DEVICES is set by server.js via config/.env unless overridden here
+            cuda_env = os.getenv("SAM3_CUDA_VISIBLE_DEVICES")
+            sam3_device_pref = os.getenv("SAM3_DEVICE")
+
+            if cuda_env is not None:
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda_env
+            elif sam3_device_pref and sam3_device_pref.lower() == "cpu":
+                os.environ.pop("CUDA_VISIBLE_DEVICES", None)
+            elif "CUDA_VISIBLE_DEVICES" not in os.environ:
+                os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+            self.device = sam3_device_pref or ("cuda" if torch.cuda.is_available() else "cpu")
+            if self.device == "cuda" and not torch.cuda.is_available():
+                self.log("CUDA requested but not available; falling back to CPU", "WARN")
+                self.device = "cpu"
             self.log(f"Using device: {self.device}")
 
             # Build model with interactive mode enabled

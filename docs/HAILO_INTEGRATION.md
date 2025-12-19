@@ -13,7 +13,7 @@ This document describes the process of integrating the Hailo-8L AI accelerator w
 
 ## Hailo SDK Verification
 
-Before running inference, we verified the Hailo setup using `hailo_check.sh`:
+Before running inference, we verified the Hailo setup using `scripts/hailo_check.sh`:
 
 ```
 ✓ Kernel: 6.12.47 (>= 6.6.31 required)

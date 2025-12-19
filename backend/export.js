@@ -29,6 +29,16 @@ const archiver = require('archiver');
 const fs = require('fs');
 const path = require('path');
 const db = require('./database');
+const dotenv = require('dotenv');
+
+// Load env from common locations
+dotenv.config({ path: path.join(__dirname, '../config/.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config(); // fallback to CWD
+
+const EXPORTS_DIR = process.env.EXPORTS_DIR
+    ? path.resolve(process.env.EXPORTS_DIR)
+    : path.join(__dirname, 'exports');
 
 function log(message) {
     console.log(`[${new Date().toISOString()}] ${message}`);
@@ -315,16 +325,15 @@ async function createYOLOZIP(projectId, options = {}) {
     const dataYAML = generateDataYAML(classMap);
 
     // Create exports directory if not exists
-    const exportsDir = path.join(__dirname, 'exports');
-    if (!fs.existsSync(exportsDir)) {
-        fs.mkdirSync(exportsDir, { recursive: true });
+    if (!fs.existsSync(EXPORTS_DIR)) {
+        fs.mkdirSync(EXPORTS_DIR, { recursive: true });
     }
 
     // Generate unique filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     const sanitizedName = project.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     const zipFilename = `${sanitizedName}_yolo_${timestamp}_${Date.now()}.zip`;
-    const zipPath = path.join(exportsDir, zipFilename);
+    const zipPath = path.join(EXPORTS_DIR, zipFilename);
 
     log(`Creating YOLO ZIP: ${zipFilename}`);
 
@@ -415,20 +424,18 @@ async function createYOLOZIP(projectId, options = {}) {
  * Cleanup old export files (older than 7 days)
  */
 function cleanupOldExports() {
-    const exportsDir = path.join(__dirname, 'exports');
-
-    if (!fs.existsSync(exportsDir)) {
+    if (!fs.existsSync(EXPORTS_DIR)) {
         return;
     }
 
-    const files = fs.readdirSync(exportsDir);
+    const files = fs.readdirSync(EXPORTS_DIR);
     const now = Date.now();
     const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
     let deletedCount = 0;
 
     files.forEach(file => {
-        const filePath = path.join(exportsDir, file);
+        const filePath = path.join(EXPORTS_DIR, file);
         const stats = fs.statSync(filePath);
         const age = now - stats.mtimeMs;
 

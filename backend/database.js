@@ -16,9 +16,17 @@ const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const dotenv = require('dotenv');
+
+// Load env from common locations
+dotenv.config({ path: path.join(__dirname, '../config/.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config(); // fallback to CWD
 
 // Paths
-const DATASETS_DIR = path.join(__dirname, 'datasets');
+const DATASETS_DIR = process.env.DATA_ROOT
+    ? path.resolve(process.env.DATA_ROOT)
+    : path.join(__dirname, 'datasets');
 const MAIN_DB_PATH = path.join(DATASETS_DIR, 'projects.db');
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
@@ -253,6 +261,8 @@ async function runMigrations(db) {
                 if (migrationFile === '004_augmentation.sql') {
                     await addColumnIfNotExists(db, 'crops', 'enhanced_image_id', 'TEXT');
                     await addColumnIfNotExists(db, 'crops', 'is_synthetic', 'INTEGER DEFAULT 0');
+                    // Create index AFTER column exists
+                    await dbExec(db, 'CREATE INDEX IF NOT EXISTS idx_crops_synthetic ON crops(is_synthetic)');
                 }
 
                 console.log(`[DB] Applied migration: ${migrationFile}`);

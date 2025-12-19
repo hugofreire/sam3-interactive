@@ -13,6 +13,16 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { createYOLOZIP, cleanupOldExports } = require('./export');
+const dotenv = require('dotenv');
+
+// Load env from common locations
+dotenv.config({ path: path.join(__dirname, '../config/.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config(); // fallback to CWD
+
+const DATA_ROOT = process.env.DATA_ROOT
+    ? path.resolve(process.env.DATA_ROOT)
+    : path.join(__dirname, 'datasets');
 
 // Active training jobs: { projectId: JobInfo }
 const activeJobs = new Map();
@@ -28,7 +38,7 @@ function log(message) {
  * Get project models directory
  */
 function getModelsDir(projectId) {
-    return path.join(__dirname, 'datasets', projectId, 'models');
+    return path.join(DATA_ROOT, projectId, 'models');
 }
 
 /**
@@ -47,13 +57,20 @@ async function startTraining(projectId, config = {}) {
         }
     }
 
+    const defaultEpochs = parseInt(process.env.TRAIN_EPOCHS || '100', 10);
+    const defaultBatch = parseInt(process.env.TRAIN_BATCH || '8', 10);
+    const defaultImgSz = parseInt(process.env.TRAIN_IMGSZ || '640', 10);
+    const defaultDevice = process.env.TRAIN_DEVICE || '1'; // GPU 1 or 'cpu' for Pi
+    const defaultWorkers = parseInt(process.env.TRAIN_WORKERS || '4', 10);
+    const defaultModel = process.env.TRAIN_MODEL || 'yolo11n';
+
     const {
-        epochs = 100,
-        batch = 8,
-        imgsz = 640,
-        device = process.env.TRAINING_DEVICE || '1',  // Use GPU 1, or 'cpu' for Pi
-        workers = parseInt(process.env.TRAINING_WORKERS || '4', 10),
-        model = 'yolo11n'  // nano, small (yolo11s), or medium (yolo11m)
+        epochs = defaultEpochs,
+        batch = defaultBatch,
+        imgsz = defaultImgSz,
+        device = defaultDevice,
+        workers = defaultWorkers,
+        model = defaultModel  // nano, small (yolo11s), or medium (yolo11m)
     } = config;
 
     const jobId = uuidv4();
@@ -137,8 +154,15 @@ async function startTraining(projectId, config = {}) {
 
     log(`Spawning: python ${args.join(' ')}`);
 
+    const trainingEnv = { ...process.env };
+    if (process.env.TRAIN_CUDA_VISIBLE_DEVICES !== undefined) {
+        trainingEnv.CUDA_VISIBLE_DEVICES = process.env.TRAIN_CUDA_VISIBLE_DEVICES;
+    } else if (device && device.toString().toLowerCase() !== 'cpu') {
+        trainingEnv.CUDA_VISIBLE_DEVICES = device.toString();
+    }
+
     const trainingProcess = spawn('python', args, {
-        env: { ...process.env, CUDA_VISIBLE_DEVICES: device.toString() },
+        env: trainingEnv,
         cwd: __dirname
     });
 
@@ -438,8 +462,15 @@ async function runInference(projectId, runId, imagePath, conf = 0.5) {
             '--conf', conf.toString()
         ];
 
+        const inferEnv = { ...process.env };
+        if (process.env.TRAIN_CUDA_VISIBLE_DEVICES !== undefined) {
+            inferEnv.CUDA_VISIBLE_DEVICES = process.env.TRAIN_CUDA_VISIBLE_DEVICES;
+        } else if (process.env.TRAIN_DEVICE && process.env.TRAIN_DEVICE.toLowerCase() !== 'cpu') {
+            inferEnv.CUDA_VISIBLE_DEVICES = process.env.TRAIN_DEVICE;
+        }
+
         const inferProcess = spawn('python', args, {
-            env: { ...process.env, CUDA_VISIBLE_DEVICES: '1' }
+            env: inferEnv
         });
 
         let stdout = '';

@@ -86,10 +86,12 @@ sam3/
 │   │   └── vite.config.ts     # Vite configuration
 │   └── package.json
 │
-├── basic_example.py           # CLI segmentation script
-├── verify_setup.py            # Setup verification
-├── WEB_APP_PLAN.md           # Implementation plan
-└── WEB_APP_README.md         # This file
+├── examples/
+│   └── basic_example.py      # CLI segmentation script
+├── scripts/
+│   └── verify_setup.py       # Setup verification
+└── docs/
+    └── ...                   # Documentation
 ```
 
 ### Communication Flow
@@ -576,10 +578,10 @@ This project uses SAM3 from Meta AI Research.
 
 ### Quick Links
 
-- Implementation Plan: `WEB_APP_PLAN.md`
-- Setup Guide: `QUICKSTART.md`
-- Basic CLI Example: `basic_example.py`
-- Setup Verification: `verify_setup.py`
+- Implementation Plan: `docs/WEB_APP_PLAN.md`
+- Setup Guide: `docs/QUICKSTART.md`
+- Basic CLI Example: `examples/basic_example.py`
+- Setup Verification: `scripts/verify_setup.py`
 
 ---
 

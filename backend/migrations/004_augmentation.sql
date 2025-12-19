@@ -19,6 +19,8 @@ CREATE INDEX IF NOT EXISTS idx_enhanced_source ON enhanced_images(source_image_p
 -- Check if columns exist before adding them
 -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we wrap in a try pattern via trigger
 -- This is handled by the migration runner checking column existence
+-- NOTE: Index idx_crops_synthetic is created by database.js AFTER column is added
 
--- Index for filtering synthetic crops
-CREATE INDEX IF NOT EXISTS idx_crops_synthetic ON crops(is_synthetic);
+-- Update schema version
+INSERT OR REPLACE INTO project_metadata (key, value) VALUES ('schema_version', '004');
+UPDATE project_metadata SET value = datetime('now') WHERE key = 'updated_at';
