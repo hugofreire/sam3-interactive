@@ -908,9 +908,17 @@ async function updateImageStatus(projectId, imageId, status) {
 async function getNextPendingImage(projectId) {
     const projectDB = getProjectDB(projectId);
 
+    // Include both 'pending' and 'in_progress' images
+    // 'in_progress' first (to resume interrupted labeling), then 'pending'
     const row = await dbGet(
         projectDB,
-        "SELECT * FROM project_images WHERE status = 'pending' ORDER BY sort_order ASC, created_at ASC LIMIT 1",
+        `SELECT * FROM project_images
+         WHERE status IN ('pending', 'in_progress')
+         ORDER BY
+           CASE status WHEN 'in_progress' THEN 0 ELSE 1 END,
+           sort_order ASC,
+           created_at ASC
+         LIMIT 1`,
         []
     );
 

@@ -325,3 +325,45 @@ export interface CreateProjectWithLabelsRequest {
     background_mode?: BackgroundMode;
   };
 }
+
+// ==================== TRAINING TYPES ====================
+
+export interface TrainingConfig {
+  epochs?: number;
+  batch_size?: number;
+  device?: string;
+  imgsz?: number;
+}
+
+export interface TrainingMetrics {
+  mAP50?: number;
+  mAP50_95?: number;
+  box_loss?: number;
+  cls_loss?: number;
+  dfl_loss?: number;
+}
+
+export interface TrainingStatus {
+  success: boolean;
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'stopped';
+  epoch?: number;
+  total_epochs?: number;
+  metrics?: TrainingMetrics;
+  eta?: string;
+  error?: string;
+}
+
+export interface TrainedModel {
+  runId: string;
+  format: string[];
+  mAP50?: number;
+  mAP50_95?: number;
+  params?: number;
+  created_at?: string;
+}
+
+export interface TrainingJob {
+  success: boolean;
+  jobId: string;
+  status: string;
+}

@@ -23,6 +23,7 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 - ✅ **YOLO export** - YOLO11 detection format with normalized bboxes
 - ✅ **YOLO11 Training** - Train detection models from labeled datasets
 - ✅ **Model Inference** - Run trained models on new images
+- ✅ **Kiosk Mode** - Touch-friendly UI for Raspberry Pi touchscreens
 - ⏳ Text-based segmentation (planned)
 
 ---
@@ -58,6 +59,17 @@ A full-stack web application for interactive image segmentation using Meta's SAM
 │   │   ├── components/
 │   │   │   ├── ImageUpload.tsx      # Drag-drop upload component
 │   │   │   └── InteractiveCanvas.tsx # Click-to-segment canvas
+│   │   ├── kiosk/                   # Touch-friendly kiosk mode UI
+│   │   │   ├── KioskLayout.tsx      # Base layout with header/nav
+│   │   │   ├── KioskHome.tsx        # Project list home page
+│   │   │   ├── KioskProject.tsx     # Project management view
+│   │   │   ├── wizard/              # 4-step project wizard
+│   │   │   │   ├── Step1Labels.tsx  # Create labels
+│   │   │   │   ├── Step2Images.tsx  # Add images
+│   │   │   │   ├── Step3Labeling.tsx # SAM3 segmentation
+│   │   │   │   └── Step4Training.tsx # YOLO training
+│   │   │   ├── sections/            # Project section views
+│   │   │   └── components/          # Touch-optimized components
 │   │   ├── api/
 │   │   │   └── sam3.ts              # Backend API client (axios)
 │   │   ├── types/
@@ -284,6 +296,125 @@ POST /api/projects/:projectId/inference/url    - Run inference (image path)
 **GPU Configuration:**
 - Uses GPU 1 by default (`CUDA_VISIBLE_DEVICES=1`)
 - Configurable via training config `device` parameter
+
+---
+
+## 📱 Kiosk Mode
+
+**Purpose**: Touch-friendly UI optimized for Raspberry Pi with 1024x600 touchscreen displays.
+
+**Access**: Navigate to `/kiosk` route (separate from desktop UI at `/`)
+
+**Design Principles:**
+- Minimum 48px touch targets (recommended 64px)
+- Large text and buttons for easy touch interaction
+- Simplified workflow with clear navigation
+- Full-screen layout without scrolling where possible
+
+### File Structure
+
+```
+frontend/src/kiosk/
+├── KioskLayout.tsx          # Base layout with header, back button, connection status
+├── KioskHome.tsx            # Home page: Open Project / New Project buttons
+├── KioskProject.tsx         # Project view with 6 section cards
+├── wizard/                  # 4-step guided workflow
+│   ├── Step1Labels.tsx      # Create/manage labels for the project
+│   ├── Step2Images.tsx      # Upload images or capture from webcam
+│   ├── Step3Labeling.tsx    # SAM3 click-to-segment labeling
+│   └── Step4Training.tsx    # YOLO11 training with progress
+├── sections/                # Direct section access from project view
+│   ├── LabelsSection.tsx    # Manage predefined labels
+│   ├── ImagesSection.tsx    # View/add/delete images
+│   ├── LabelingSection.tsx  # Continue labeling workflow
+│   ├── DatasetSection.tsx   # View saved crops
+│   ├── TrainingSection.tsx  # Train models
+│   └── ExportSection.tsx    # Download YOLO dataset
+└── components/              # Touch-optimized UI components
+    ├── TouchButton.tsx      # Large touch-friendly button (polymorphic)
+    ├── SegmentCanvas.tsx    # Click-to-segment canvas
+    └── WebcamCapture.tsx    # Camera capture component
+```
+
+### Wizard Flow
+
+```
+Step 1: Labels → Step 2: Images → Step 3: Labeling → Step 4: Training
+   ↓                 ↓                  ↓                    ↓
+Create labels    Upload/capture    Click to segment    Train YOLO11
+for project      images            with SAM3           model
+```
+
+### Key Components
+
+**TouchButton** (`components/TouchButton.tsx`):
+- Polymorphic component supporting `as` prop for rendering as different elements
+- Variants: `primary`, `secondary`, `outline`, `ghost`, `danger`
+- Sizes: `default` (56px), `lg` (64px), `xl` (80px)
+
+**Step3Labeling** - Critical labeling workflow:
+- Loads images with `pending` or `in_progress` status
+- Creates SAM3 session for each image
+- Click-to-segment with 3 mask candidates
+- Saves crops with label, bbox, and source image metadata
+- Tracks progress with `[current/total]` counter
+
+### Important Implementation Details
+
+**Image Status Flow:**
+```
+pending → in_progress → completed
+```
+- `getNextPendingImage()` returns both `pending` AND `in_progress` images
+- `in_progress` images shown first (to resume interrupted labeling)
+- Image marked `completed` when user clicks "Next Image"
+
+**Stats Object:**
+```typescript
+interface ImageStats {
+  pending: number;      // Images not yet touched
+  in_progress: number;  // Images being labeled
+  completed: number;    // Fully labeled images
+  total: number;        // Sum of all
+}
+```
+
+**Crop Save Payload:**
+```typescript
+await createCrop(projectId, {
+  sessionId: session.sessionId,
+  maskIndex: selectedMask,
+  label: selectedLabel.name,
+  backgroundMode: 'transparent',
+  sourceImage: currentImage.original_filename,  // Required!
+  imageId: currentImage.id,                     // Required!
+});
+```
+
+### Accessing Kiosk Mode
+
+**Development:**
+```bash
+# Start backend
+node backend/server.js
+
+# Start frontend
+cd frontend && npm run dev -- --host 0.0.0.0
+
+# Access kiosk UI
+http://localhost:5173/kiosk
+```
+
+**Raspberry Pi Deployment:**
+```bash
+# Set environment variables
+export VITE_PROXY_TARGET=http://your-server:4010
+
+# Build for production
+cd frontend && npm run build
+
+# Serve with nginx or similar
+```
 
 ---
 
