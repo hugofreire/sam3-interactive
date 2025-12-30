@@ -1,72 +1,88 @@
 #!/bin/bash
 
-# Stop Chrome DevTools MCP Server
-# This script stops the running Chrome DevTools MCP server
+# Stop Chrome/Chromium and DevTools MCP Server
+# This script stops the browser and MCP server started by start-chrome-mcp.sh
 
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PID_FILE="$PROJECT_ROOT/scripts/.chrome-mcp.pid"
+BROWSER_PID_FILE="$PROJECT_ROOT/scripts/.browser.pid"
 LOG_FILE="$PROJECT_ROOT/scripts/chrome-mcp.log"
 
-echo "Stopping Chrome DevTools MCP Server..."
+STOP_BROWSER="${STOP_BROWSER:-true}"
 
-# Check if PID file exists
-if [ ! -f "$PID_FILE" ]; then
-    echo "Chrome DevTools MCP Server is not running (no PID file found)"
+# Function to stop a process by PID file
+stop_process() {
+    local pid_file="$1"
+    local name="$2"
 
-    # Clean up any orphaned processes
-    echo "Checking for orphaned chrome-devtools-mcp processes..."
-    ORPHANED_PIDS=$(pgrep -f "chrome-devtools-mcp" || true)
-
-    if [ -n "$ORPHANED_PIDS" ]; then
-        echo "Found orphaned processes: $ORPHANED_PIDS"
-        echo "Killing orphaned processes..."
-        pkill -f "chrome-devtools-mcp" || true
-        echo "Orphaned processes terminated"
-    else
-        echo "No orphaned processes found"
+    if [ ! -f "$pid_file" ]; then
+        echo "   $name: no PID file found"
+        return 0
     fi
 
-    exit 0
+    local pid=$(cat "$pid_file")
+
+    if ! ps -p "$pid" > /dev/null 2>&1; then
+        echo "   $name: not running (process $pid not found)"
+        rm "$pid_file"
+        return 0
+    fi
+
+    echo "   $name: stopping (PID: $pid)..."
+    kill "$pid" 2>/dev/null || true
+
+    # Wait for process to stop (max 5 seconds)
+    local timeout=5
+    local counter=0
+    while ps -p "$pid" > /dev/null 2>&1 && [ $counter -lt $timeout ]; do
+        sleep 1
+        counter=$((counter + 1))
+    done
+
+    # Force kill if still running
+    if ps -p "$pid" > /dev/null 2>&1; then
+        echo "   $name: forcing kill..."
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+
+    rm "$pid_file"
+    echo "   $name: ✅ stopped"
+}
+
+echo "🛑 Stopping Chrome DevTools MCP..."
+echo ""
+
+# Stop MCP server
+stop_process "$PID_FILE" "MCP Server"
+
+# Stop browser (unless STOP_BROWSER=false)
+if [ "$STOP_BROWSER" = "true" ]; then
+    stop_process "$BROWSER_PID_FILE" "Browser"
+else
+    echo "   Browser: skipped (STOP_BROWSER=false)"
 fi
 
-# Read PID
-PID=$(cat "$PID_FILE")
+# Clean up any orphaned MCP processes
+echo ""
+echo "Checking for orphaned processes..."
+ORPHANED_PIDS=$(pgrep -f "chrome-devtools-mcp" || true)
 
-# Check if process is running
-if ! ps -p "$PID" > /dev/null 2>&1; then
-    echo "Chrome DevTools MCP Server is not running (process $PID not found)"
-    rm "$PID_FILE"
-    exit 0
+if [ -n "$ORPHANED_PIDS" ]; then
+    echo "   Found orphaned MCP processes: $ORPHANED_PIDS"
+    pkill -f "chrome-devtools-mcp" || true
+    echo "   ✅ Orphaned processes terminated"
+else
+    echo "   No orphaned processes found"
 fi
 
-# Stop the process
-echo "Stopping process $PID..."
-kill "$PID" 2>/dev/null || true
-
-# Wait for process to stop (max 10 seconds)
-TIMEOUT=10
-COUNTER=0
-while ps -p "$PID" > /dev/null 2>&1 && [ $COUNTER -lt $TIMEOUT ]; do
-    sleep 1
-    COUNTER=$((COUNTER + 1))
-done
-
-# Force kill if still running
-if ps -p "$PID" > /dev/null 2>&1; then
-    echo "Process did not stop gracefully, forcing..."
-    kill -9 "$PID" 2>/dev/null || true
-fi
-
-# Remove PID file
-rm "$PID_FILE"
-
-echo "Chrome DevTools MCP Server stopped successfully!"
+echo ""
+echo "✅ Chrome DevTools MCP stopped!"
 
 # Show last few lines of log if exists
 if [ -f "$LOG_FILE" ]; then
     echo ""
-    echo "Last 10 lines of log:"
-    tail -n 10 "$LOG_FILE"
+    echo "Last 5 lines of MCP log:"
+    tail -n 5 "$LOG_FILE" 2>/dev/null || true
 fi
