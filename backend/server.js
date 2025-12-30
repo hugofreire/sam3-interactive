@@ -30,6 +30,15 @@ const EXPORTS_DIR = process.env.EXPORTS_DIR
     : path.join(BACKEND_DIR, 'exports');
 const SAM3_PYTHON = process.env.SAM3_PYTHON || 'python3';
 const SAM3_CUDA_VISIBLE_DEVICES = process.env.SAM3_CUDA_VISIBLE_DEVICES;
+const SAM3_REMOTE_URL = process.env.SAM3_REMOTE_URL; // Optional: use remote HTTP service
+
+// SAM3 Client for remote mode
+let sam3Client = null;
+if (SAM3_REMOTE_URL) {
+    const SAM3Client = require('./sam3_client');
+    sam3Client = new SAM3Client(SAM3_REMOTE_URL);
+    console.log(`[SAM3] Using remote service at ${SAM3_REMOTE_URL}`);
+}
 
 async function ensureDir(dirPath) {
     try {
@@ -149,7 +158,80 @@ function startSAM3Process() {
     });
 }
 
-function sendCommand(command) {
+/**
+ * Send command to SAM3 service (local subprocess or remote HTTP)
+ */
+async function sendCommand(command) {
+    // Route to remote HTTP service if configured
+    if (sam3Client) {
+        return sendRemoteCommand(command);
+    }
+    // Otherwise use local subprocess
+    return sendLocalCommand(command);
+}
+
+/**
+ * Send command to remote SAM3 HTTP service
+ */
+async function sendRemoteCommand(command) {
+    const { command: cmd, ...params } = command;
+
+    switch (cmd) {
+        case 'load_image':
+            return sam3Client.createSession(params.image_path, params.session_id);
+
+        case 'predict_click':
+            return sam3Client.predictClick(
+                params.session_id,
+                params.points,
+                params.labels,
+                {
+                    multimaskOutput: params.multimask_output,
+                    usePreviousLogits: params.use_previous_logits,
+                }
+            );
+
+        case 'predict_text':
+            return sam3Client.predictText(params.session_id, params.prompt);
+
+        case 'clear_session':
+            return sam3Client.clearSession(params.session_id);
+
+        case 'crop_from_mask':
+            // For remote, we get base64 crop back instead of file path
+            const cropResult = await sam3Client.createCrop(
+                params.session_id,
+                params.mask_index,
+                {
+                    backgroundMode: params.background_mode,
+                    padding: params.padding,
+                }
+            );
+            // If successful and we have output_path, save the crop locally
+            if (cropResult.success && cropResult.crop_base64 && params.output_path) {
+                const cropBuffer = Buffer.from(cropResult.crop_base64, 'base64');
+                await fs.mkdir(path.dirname(params.output_path), { recursive: true });
+                await fs.writeFile(params.output_path, cropBuffer);
+                return {
+                    ...cropResult,
+                    output_path: params.output_path,
+                };
+            }
+            return cropResult;
+
+        case 'ping':
+            const health = await sam3Client.healthCheck();
+            return { success: health.sam3_ready, message: 'pong' };
+
+        default:
+            throw new Error(`Unknown command: ${cmd}`);
+    }
+}
+
+/**
+ * Send command to local SAM3 subprocess
+ */
+function sendLocalCommand(command) {
     return new Promise((resolve, reject) => {
         if (!sam3Process || !isReady) {
             reject(new Error('SAM3 service not ready'));
@@ -224,13 +306,33 @@ app.use('/api/projects', augmentationRouter);
 // ==================== SAM3 ENDPOINTS ====================
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.json({
+app.get('/api/health', async (req, res) => {
+    const health = {
         status: 'ok',
-        sam3Ready: isReady,
+        sam3Ready: false,
+        sam3Remote: !!sam3Client,
         databaseReady: true,
         timestamp: new Date().toISOString()
-    });
+    };
+
+    if (sam3Client) {
+        // Check remote SAM3 service
+        try {
+            const sam3Health = await sam3Client.healthCheck();
+            health.sam3Ready = sam3Health.sam3_ready;
+            health.sam3Device = sam3Health.device;
+            health.sam3Gpu = sam3Health.gpu_name;
+            health.sam3Sessions = sam3Health.sessions_active;
+        } catch (e) {
+            health.sam3Ready = false;
+            health.sam3Error = e.message;
+        }
+    } else {
+        // Local SAM3 subprocess
+        health.sam3Ready = isReady;
+    }
+
+    res.json(health);
 });
 
 // Upload image
@@ -390,8 +492,14 @@ async function initializeDatabase() {
     }
 }
 
-// Start SAM3 service
-startSAM3Process();
+// Start SAM3 service (only for local mode)
+if (!sam3Client) {
+    startSAM3Process();
+} else {
+    // Remote mode - mark as ready immediately
+    isReady = true;
+    log('Using remote SAM3 service - no local subprocess needed');
+}
 
 // Cleanup on shutdown
 process.on('SIGINT', async () => {
