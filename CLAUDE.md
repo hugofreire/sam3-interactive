@@ -2,6 +2,22 @@
 
 > **Purpose**: Quick developer guide for working on the SAM3 interactive segmentation web app.
 
+## ⚠️ Platform Check (Read First!)
+
+**At the start of each coding session, check if running on Raspberry Pi:**
+
+```bash
+uname -m  # "aarch64" = Raspberry Pi, "x86_64" = standard PC
+```
+
+**If on Raspberry Pi (`aarch64`):**
+- 📖 **Read [`docs/RASPBERRY_PI.md`](docs/RASPBERRY_PI.md)** for Pi-specific setup, workarounds, and common issues
+- SAM3 runs remotely via `SAM3_REMOTE_URL=http://10.9.0.14:8000`
+- Chrome DevTools MCP requires symlink: `/opt/google/chrome/chrome` → `/usr/bin/chromium`
+- May need to create `frontend/src/lib/utils.ts` if missing
+
+---
+
 ## Overview
 
 Full-stack app for interactive image segmentation using Meta SAM3. Users upload images and segment by clicking; supports YOLO dataset export and training.
@@ -261,6 +277,7 @@ journalctl -u sam3-http -f
 
 ## References
 
+- `docs/RASPBERRY_PI.md` - **Pi-specific setup & troubleshooting**
 - `docs/WEB_APP_README.md` - User-facing docs
 - `docs/QUICKSTART.md` - Setup guide
 - `docs/WEB_APP_PLAN.md` - Original plan

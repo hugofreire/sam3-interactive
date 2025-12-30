@@ -4,9 +4,13 @@
       "command": "npx",
       "args": [
         "-y",
-        "chrome-devtools-mcp@latest",
-        "--isolated=true"
-      ]
+        "chrome-devtools-mcp@latest"
+      ],
+      "env": {
+        "CHROME_PATH": "/usr/bin/chromium",
+        "PUPPETEER_EXECUTABLE_PATH": "/usr/bin/chromium",
+        "DISPLAY": ":0"
+      }
     }
   }
 }
