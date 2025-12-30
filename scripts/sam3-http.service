@@ -1,0 +1,36 @@
+# SAM3 HTTP Service - Systemd Unit File
+#
+# Installation:
+#   sudo cp scripts/sam3-http.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable sam3-http
+#   sudo systemctl start sam3-http
+#
+# Status:
+#   sudo systemctl status sam3-http
+#   journalctl -u sam3-http -f
+
+[Unit]
+Description=SAM3 HTTP Service - GPU-accelerated segmentation API
+After=network.target
+
+[Service]
+Type=simple
+User=hugo
+Group=hugo
+WorkingDirectory=/home/hugo/PycharmProjects/sam3/backend
+Environment="CUDA_VISIBLE_DEVICES=1"
+Environment="SAM3_HTTP_HOST=0.0.0.0"
+Environment="SAM3_HTTP_PORT=8000"
+ExecStart=/home/hugo/miniconda3/bin/python -m uvicorn sam3_http_service:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits
+LimitNOFILE=65536
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target

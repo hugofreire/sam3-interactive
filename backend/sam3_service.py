@@ -179,14 +179,24 @@ class SAM3Service:
             # Convert masks to base64
             masks_b64 = []
             for i, mask in enumerate(masks):
-                mask_np = mask.cpu().numpy() if torch.is_tensor(mask) else mask
+                # Convert to numpy array, handling both tensors and numpy arrays
+                if torch.is_tensor(mask):
+                    mask_np = mask.cpu().numpy()
+                else:
+                    # Force conversion to proper numpy array with float dtype
+                    mask_np = np.asarray(mask, dtype=np.float32)
 
                 # Ensure 2D
                 if mask_np.ndim == 3:
                     mask_np = mask_np.squeeze()
 
-                # Convert to uint8 (0 or 255)
-                mask_uint8 = (mask_np * 255).astype(np.uint8)
+                # CRITICAL FIX: Ensure we have a proper contiguous numpy array
+                # The mask might be coming back as an object array or non-contiguous
+                mask_np = np.ascontiguousarray(mask_np, dtype=np.float32)
+
+                # Threshold to binary - SAM3 returns probability values (0.02, 0.98)
+                # We threshold at 0.5 and convert to 0/255
+                mask_uint8 = np.where(mask_np > 0.5, np.uint8(255), np.uint8(0))
 
                 # Convert to PNG base64
                 img = Image.fromarray(mask_uint8, mode='L')
@@ -250,10 +260,18 @@ class SAM3Service:
             # Convert masks to base64
             masks_b64 = []
             for mask in masks:
-                mask_np = mask.cpu().numpy() if torch.is_tensor(mask) else mask
+                # Convert to numpy array, handling both tensors and numpy arrays
+                if torch.is_tensor(mask):
+                    mask_np = mask.cpu().numpy()
+                else:
+                    mask_np = np.asarray(mask, dtype=np.float32)
+
                 if mask_np.ndim == 3:
                     mask_np = mask_np.squeeze()
-                mask_uint8 = (mask_np * 255).astype(np.uint8)
+
+                # CRITICAL: Ensure proper contiguous array and threshold to binary
+                mask_np = np.ascontiguousarray(mask_np, dtype=np.float32)
+                mask_uint8 = np.where(mask_np > 0.5, np.uint8(255), np.uint8(0))
                 img = Image.fromarray(mask_uint8, mode='L')
                 buffer = io.BytesIO()
                 img.save(buffer, format='PNG')
@@ -334,11 +352,14 @@ class SAM3Service:
             if torch.is_tensor(mask):
                 mask_np = mask.cpu().numpy()
             else:
-                mask_np = mask
+                mask_np = np.asarray(mask, dtype=np.float32)
 
             # Ensure 2D
             if mask_np.ndim == 3:
                 mask_np = mask_np.squeeze()
+
+            # CRITICAL: Ensure proper contiguous array
+            mask_np = np.ascontiguousarray(mask_np, dtype=np.float32)
 
             # Convert to boolean
             mask_bool = mask_np > 0.5
