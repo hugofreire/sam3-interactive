@@ -5,10 +5,11 @@
 
 set -e
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PID_FILE="$PROJECT_ROOT/scripts/.chrome-mcp.pid"
-BROWSER_PID_FILE="$PROJECT_ROOT/scripts/.browser.pid"
-LOG_FILE="$PROJECT_ROOT/scripts/chrome-mcp.log"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPTS_DIR="$PROJECT_ROOT/scripts"
+PID_FILE="$SCRIPTS_DIR/.chrome-mcp.pid"
+BROWSER_PID_FILE="$SCRIPTS_DIR/.browser.pid"
+LOG_FILE="$SCRIPTS_DIR/chrome-mcp.log"
 
 STOP_BROWSER="${STOP_BROWSER:-true}"
 

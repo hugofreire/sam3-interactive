@@ -124,8 +124,18 @@ config/
 └── .env.gpu-server        # SAM3 HTTP service standalone config
 
 scripts/
-├── sam3-http.service      # Systemd unit for SAM3 HTTP service
-└── start-chrome-mcp.sh    # Chrome DevTools MCP
+├── common/                # Both platforms
+│   ├── start-chrome-mcp.sh    # Chrome DevTools MCP
+│   └── stop-chrome-mcp.sh     # Stop Chrome + MCP
+├── raspberry-pi/          # Pi-specific
+│   ├── setup.sh               # Initial Pi setup (pipewire-v4l2, deps)
+│   ├── hailo_check.sh         # Check Hailo AI Kit
+│   └── rpi5_inference.py      # YOLO inference (NCNN/Hailo)
+├── gpu-server/            # GPU server
+│   ├── verify_setup.py        # Verify SAM3/PyTorch/CUDA
+│   ├── sam3-http.service      # Systemd unit for SAM3 service
+│   └── convert_to_hef.sh      # ONNX to Hailo HEF
+└── eval/                  # Model evaluation & benchmarks
 ```
 
 ---
@@ -263,7 +273,7 @@ POST /sessions/{id}/crop                  # Extract crop from mask
 
 ```bash
 # Install SAM3 HTTP service
-sudo cp scripts/sam3-http.service /etc/systemd/system/
+sudo cp scripts/gpu-server/sam3-http.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable sam3-http
 sudo systemctl start sam3-http
