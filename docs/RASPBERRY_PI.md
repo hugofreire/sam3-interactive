@@ -170,43 +170,44 @@ lsof -ti:5173 | xargs kill -9
 
 ### 4. Webcam Not Working in Browser (Black Screen)
 
-**Problem:** Camera button in kiosk mode shows black video, capture doesn't work.
+**Problem:** Camera button in kiosk mode shows black video, `getUserMedia()` hangs or times out.
 
-**Cause:** PipeWire (Raspberry Pi OS's audio/video server) can't access USB V4L2 cameras without a bridge.
+**Cause:** Chromium's PipeWire camera support doesn't work reliably with USB V4L2 cameras on Raspberry Pi. The browser tries to access the camera through PipeWire, which hangs indefinitely.
 
-**Solution:** Install `pipewire-v4l2`:
+**Solution:** Disable PipeWire camera support in Chrome flags:
 
-```bash
-sudo apt update
-sudo apt install pipewire-v4l2
-```
+1. Open `chrome://flags` in Chromium
+2. Search for `pipewire`
+3. Set **"PipeWire Camera Support"** → **Disabled**
+4. Click "Relaunch" to fully restart Chromium
 
-This package bridges USB V4L2 cameras to PipeWire, allowing browsers (Chromium) to access the camera via WebRTC/getUserMedia.
+This forces Chromium to use direct V4L2 access instead of going through PipeWire, which works reliably with USB cameras.
 
-**Verify camera is detected:**
+**Verify camera is detected at system level:**
 ```bash
 # List video devices
 v4l2-ctl --list-devices
 
 # Should show your camera, e.g.:
 # Global Shutter Camera: Global S (usb-xhci-hcd.1-1):
+#     /dev/video0
 #     /dev/video1
-#     /dev/video2
-```
 
-**Test camera in browser:**
-1. Open `chrome://settings/content/camera` in Chromium
-2. Select your camera from dropdown
-3. Allow camera access when prompted in kiosk mode
+# Test capture works at system level
+ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 -update 1 -y /tmp/test.jpg
+```
 
 **Still not working?** Check permissions:
 ```bash
-# Add user to video group
-sudo usermod -aG video $USER
+# Ensure user is in video group
+groups | grep video
 
-# Logout and login, or:
-newgrp video
+# If not, add and re-login:
+sudo usermod -aG video $USER
+# Then logout and login, or: newgrp video
 ```
+
+**Note:** Do NOT install `pipewire-v4l2` - it doesn't help and the real fix is disabling PipeWire camera support in Chrome flags.
 
 ---
 
@@ -338,9 +339,10 @@ curl -s http://localhost:9222/json/version
 - [ ] Is Chrome running with remote debugging? (`curl http://localhost:9222/json/version`)
 
 **Webcam/Camera:**
-- [ ] Is `pipewire-v4l2` installed? (`dpkg -l | grep pipewire-v4l2`)
+- [ ] Is PipeWire Camera Support **disabled** in `chrome://flags`?
 - [ ] Is camera detected? (`v4l2-ctl --list-devices`)
 - [ ] Is user in video group? (`groups | grep video`)
+- [ ] Does system-level capture work? (`ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 -y /tmp/test.jpg`)
 
 ---
 
@@ -374,4 +376,4 @@ scripts/
 
 ---
 
-*Last updated: 2025-12-31*
+*Last updated: 2026-01-06*
