@@ -207,7 +207,17 @@ sudo usermod -aG video $USER
 # Then logout and login, or: newgrp video
 ```
 
-**Note:** Do NOT install `pipewire-v4l2` - it doesn't help and the real fix is disabling PipeWire camera support in Chrome flags.
+**Alternative: Command-line flag (automated)**
+
+Instead of manually changing chrome://flags, you can start Chromium with this flag:
+
+```bash
+chromium --disable-features=WebRtcPipeWireCamera
+```
+
+This is already included in `scripts/common/start-chrome-mcp.sh`, so the camera works automatically when using our startup script.
+
+**Note:** Do NOT install `pipewire-v4l2` - it doesn't help and the real fix is disabling PipeWire camera support.
 
 ---
 

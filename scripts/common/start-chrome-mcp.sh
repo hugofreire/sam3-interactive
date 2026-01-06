@@ -64,11 +64,14 @@ else
     fi
 
     # Start browser with remote debugging
+    # Note: --disable-features=WebRtcPipeWireCamera fixes webcam black screen on Raspberry Pi
+    # by forcing direct V4L2 access instead of PipeWire (which hangs with USB cameras)
     nohup "$BROWSER" \
         --remote-debugging-port="$DEBUG_PORT" \
         --no-first-run \
         --no-default-browser-check \
         --disable-background-mode \
+        --disable-features=WebRtcPipeWireCamera \
         "$START_URL" \
         > "$BROWSER_LOG_FILE" 2>&1 &
 
